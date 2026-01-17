@@ -125,7 +125,7 @@ services:
   # MCP Servers
   # ============================================
   github_mcp:
-    image: ghcr.io/github/github-mcp-server:latest
+    image: ghcr.io/github/github-mcp-server:v0.2.0
     container_name: github_mcp_server
     restart: unless-stopped
     environment:
@@ -247,7 +247,7 @@ services:
   # Monitoring & Logging
   # ============================================
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.48.0
     container_name: prometheus
     restart: unless-stopped
     volumes:
@@ -271,7 +271,7 @@ services:
           memory: 512M
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:10.2.2
     container_name: grafana
     restart: unless-stopped
     environment:
@@ -299,7 +299,7 @@ services:
   # Secrets Management (Vault - Optional)
   # ============================================
   vault:
-    image: vault:latest
+    image: hashicorp/vault:1.15.4
     container_name: vault
     restart: unless-stopped
     cap_add:
