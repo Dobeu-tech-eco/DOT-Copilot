@@ -3,6 +3,8 @@ import prisma from '../db';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { generateTokenPair, verifyRefreshToken } from '../utils/jwt';
 import { validateBody, loginSchema, registerSchema, resetPasswordSchema, refreshTokenSchema } from '../schemas';
+import { emailService } from '../services/email';
+import crypto from 'crypto';
 
 const router = Router();
 
@@ -128,6 +130,65 @@ router.post('/logout', async (req: Request, res: Response) => {
   res.json({ message: 'Logged out successfully' });
 });
 
+/**
+ * Generate a secure password reset token
+ * Uses a time-limited signed token approach
+ */
+function generateResetToken(userId: string, email: string): string {
+  const payload = {
+    userId,
+    email,
+    purpose: 'password-reset',
+    iat: Date.now(),
+    exp: Date.now() + 3600000, // 1 hour expiration
+  };
+  
+  const secret = process.env.JWT_SECRET || 'fallback-secret-change-me';
+  const data = JSON.stringify(payload);
+  const signature = crypto
+    .createHmac('sha256', secret)
+    .update(data)
+    .digest('hex');
+  
+  const token = Buffer.from(data).toString('base64') + '.' + signature;
+  return token;
+}
+
+/**
+ * Verify a password reset token
+ * Returns the payload if valid, throws if invalid
+ */
+function verifyResetToken(token: string): { userId: string; email: string } {
+  const secret = process.env.JWT_SECRET || 'fallback-secret-change-me';
+  const [dataB64, signature] = token.split('.');
+  
+  if (!dataB64 || !signature) {
+    throw new Error('Invalid token format');
+  }
+  
+  const data = Buffer.from(dataB64, 'base64').toString('utf-8');
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(data)
+    .digest('hex');
+  
+  if (signature !== expectedSignature) {
+    throw new Error('Invalid token signature');
+  }
+  
+  const payload = JSON.parse(data);
+  
+  if (payload.purpose !== 'password-reset') {
+    throw new Error('Invalid token purpose');
+  }
+  
+  if (Date.now() > payload.exp) {
+    throw new Error('Token has expired');
+  }
+  
+  return { userId: payload.userId, email: payload.email };
+}
+
 router.post('/reset-password', validateBody(resetPasswordSchema), async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
@@ -139,13 +200,68 @@ router.post('/reset-password', validateBody(resetPasswordSchema), async (req: Re
       return res.json({ message: 'If the email exists, a password reset link has been sent' });
     }
 
-    // TODO: Send password reset email
-    // For now, just log that we would send an email
-    console.log(`Password reset requested for: ${email}`);
+    // Generate a secure reset token
+    const resetToken = generateResetToken(user.id, user.email);
+    
+    // Build the reset URL
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const resetUrl = `${frontendUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
+    
+    // Send the password reset email
+    const emailSent = await emailService.sendPasswordReset(email, resetToken, resetUrl);
+    
+    if (!emailSent) {
+      console.error(`Failed to send password reset email to: ${email}`);
+      // Still return success to prevent enumeration, but log the error
+    }
 
     res.json({ message: 'If the email exists, a password reset link has been sent' });
   } catch (error: any) {
     console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/reset-password/confirm', async (req: Request, res: Response) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: 'Token and new password are required' });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    // Verify the reset token
+    let tokenPayload;
+    try {
+      tokenPayload = verifyResetToken(token);
+    } catch (err: any) {
+      return res.status(400).json({ error: err.message || 'Invalid or expired reset token' });
+    }
+
+    // Find the user
+    const user = await prisma.user.findUnique({ 
+      where: { id: tokenPayload.userId } 
+    });
+
+    if (!user || user.email !== tokenPayload.email) {
+      return res.status(400).json({ error: 'Invalid reset token' });
+    }
+
+    // Hash the new password and update
+    const passwordHash = await hashPassword(newPassword);
+    
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash },
+    });
+
+    res.json({ message: 'Password has been reset successfully' });
+  } catch (error: any) {
+    console.error('Reset password confirm error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

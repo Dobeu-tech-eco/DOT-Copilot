@@ -8,9 +8,114 @@ from contextlib import asynccontextmanager
 import httpx
 import os
 from typing import Optional
+from jose import jwt, JWTError
+from jose.exceptions import ExpiredSignatureError
+import json
+from functools import lru_cache
 
 # Security
 security = HTTPBearer()
+
+# Auth0 Configuration
+AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN", "")
+AUTH0_AUDIENCE = os.getenv("AUTH0_AUDIENCE", "")
+AUTH0_ALGORITHMS = ["RS256"]
+
+# Cache for JWKS keys
+_jwks_cache = None
+
+
+async def get_jwks():
+    """Fetch and cache JWKS from Auth0"""
+    global _jwks_cache
+    if _jwks_cache is not None:
+        return _jwks_cache
+    
+    if not AUTH0_DOMAIN:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Auth0 domain not configured"
+        )
+    
+    jwks_url = f"https://{AUTH0_DOMAIN}/.well-known/jwks.json"
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(jwks_url, timeout=10.0)
+            response.raise_for_status()
+            _jwks_cache = response.json()
+            return _jwks_cache
+    except httpx.HTTPError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch JWKS: {str(e)}"
+        )
+
+
+def get_signing_key(jwks: dict, token: str) -> dict:
+    """Extract the signing key from JWKS based on token header"""
+    try:
+        unverified_header = jwt.get_unverified_header(token)
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token header"
+        )
+    
+    kid = unverified_header.get("kid")
+    if not kid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token missing key ID"
+        )
+    
+    for key in jwks.get("keys", []):
+        if key.get("kid") == kid:
+            return key
+    
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Unable to find appropriate signing key"
+    )
+
+
+async def verify_jwt_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+    """
+    Verify JWT token with Auth0.
+    Returns the decoded token payload if valid.
+    """
+    token = credentials.credentials
+    
+    # Skip verification in development mode if Auth0 is not configured
+    if not AUTH0_DOMAIN or not AUTH0_AUDIENCE:
+        # Return a mock payload for development
+        return {
+            "sub": "dev-user",
+            "email": "dev@example.com",
+            "permissions": []
+        }
+    
+    jwks = await get_jwks()
+    signing_key = get_signing_key(jwks, token)
+    
+    try:
+        payload = jwt.decode(
+            token,
+            signing_key,
+            algorithms=AUTH0_ALGORITHMS,
+            audience=AUTH0_AUDIENCE,
+            issuer=f"https://{AUTH0_DOMAIN}/"
+        )
+        return payload
+    except ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired"
+        )
+    except JWTError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid token: {str(e)}"
+        )
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -92,16 +197,16 @@ async def api_status():
 async def execute_mcp_tool(
     tool_name: str,
     arguments: dict,
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+    token_payload: dict = Depends(verify_jwt_token)
 ):
     """
     Execute MCP tool via gateway
-    Requires authentication
+    Requires authentication - JWT token is verified via Auth0
     """
-    # TODO: Verify JWT token with Auth0
-    # token = credentials.credentials
-    # Verify token...
-
+    # Token is now verified - token_payload contains the decoded JWT claims
+    # Available claims: sub (user ID), email, permissions, etc.
+    user_id = token_payload.get("sub", "unknown")
+    
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
