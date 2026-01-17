@@ -90,25 +90,25 @@ Identified **20 security issues** across 4 severity levels:
 ## Outstanding Items Checklist
 
 ### Infrastructure Security (Priority 1)
-- [ ] Remove hardcoded secrets from docker-compose.yml
-- [ ] Create .env.example with required variables
-- [ ] Implement PostgreSQL private endpoints
-- [ ] Add network ACLs to Azure Storage
-- [ ] Remove `|| true` from CI/CD test commands
-- [ ] Add Trivy container scanning to CI pipeline
-- [ ] Create non-root nginx Dockerfile
-- [ ] Require MongoDB authentication
-- [ ] Move connection strings to Key Vault
-- [ ] Implement rate limiting in nginx
+- [x] Remove hardcoded secrets from docker-compose.yml ✅
+- [x] Create .env.example with required variables ✅
+- [ ] Implement PostgreSQL private endpoints (Azure access required)
+- [ ] Add network ACLs to Azure Storage (Azure access required)
+- [x] Remove `|| true` from CI/CD test commands ✅
+- [x] Add Trivy container scanning to CI pipeline ✅
+- [x] Create non-root nginx Dockerfile ✅
+- [x] Require MongoDB authentication ✅
+- [ ] Move connection strings to Key Vault (Azure access required)
+- [x] Implement rate limiting in nginx ✅
 
 ### Infrastructure Improvements (Priority 2)
-- [ ] Pin Docker images to specific digests
-- [ ] Add resource limits to all Docker services
-- [ ] Configure centralized logging
-- [ ] Document backup/restore procedures
-- [ ] Create disaster recovery plan (DISASTER_RECOVERY.md)
-- [ ] Add .dockerignore files to all services
-- [ ] Optimize Docker multi-stage builds
+- [x] Pin Docker images to specific digests ✅
+- [x] Add resource limits to all Docker services ✅
+- [x] Configure centralized logging ✅
+- [x] Document backup/restore procedures ✅
+- [x] Create disaster recovery plan (DISASTER_RECOVERY.md) ✅
+- [x] Add .dockerignore files to all services ✅
+- [x] Optimize Docker multi-stage builds ✅
 - [ ] Implement infrastructure tests (Bicep linting)
 - [ ] Set up cost alerts in Azure
 - [ ] Review and enhance monitoring dashboards
