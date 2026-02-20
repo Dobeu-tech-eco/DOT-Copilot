@@ -20,8 +20,8 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.948.0",
-    "@aws-sdk/s3-request-presigner": "^3.948.0",
+    "@aws-sdk/client-s3": "^3.995.0",
+    "@aws-sdk/s3-request-presigner": "^3.995.0",
     "@azure/storage-blob": "^12.29.1",
     "@prisma/client": "^7.1.0",
     "@sentry/node": "^10.30.0",
