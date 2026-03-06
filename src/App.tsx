@@ -3,17 +3,27 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
 import { Layout } from './components/Layout'
 import { LoadingSpinner } from './components/LoadingSpinner'
+import { ErrorBoundary } from './components/ErrorBoundary'
+import { ToastContainer } from './components/ToastContainer'
 import { LoginPage } from './pages/LoginPage'
+import { RegisterPage } from './pages/RegisterPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { CompliancePage } from './pages/CompliancePage'
 import { TrainingPage } from './pages/TrainingPage'
 import { VehiclesPage } from './pages/VehiclesPage'
 import { UsersPage } from './pages/UsersPage'
+import { NotificationsPage } from './pages/NotificationsPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore()
   if (!isAuthenticated) return <Navigate to="/" replace />
+  return <>{children}</>
+}
+
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated } = useAuthStore()
+  if (isAuthenticated) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -33,21 +43,25 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<LoginPage />} />
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<PublicRoute><LoginPage /></PublicRoute>} />
+          <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
 
-        <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/compliance" element={<CompliancePage />} />
-          <Route path="/training" element={<TrainingPage />} />
-          <Route path="/vehicles" element={<VehiclesPage />} />
-          <Route path="/users" element={<UsersPage />} />
-          <Route path="/notifications" element={<DashboardPage />} />
-        </Route>
+          <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/compliance" element={<CompliancePage />} />
+            <Route path="/training" element={<TrainingPage />} />
+            <Route path="/vehicles" element={<VehiclesPage />} />
+            <Route path="/users" element={<UsersPage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
+          </Route>
 
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </BrowserRouter>
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+        <ToastContainer />
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }
