@@ -2,6 +2,9 @@
   "mcpServers": {
     "rube": {
       "enabled": true
+    },
+    "linear": {
+      "enabled": true
     }
   }
 }
