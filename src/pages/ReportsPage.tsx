@@ -1,14 +1,15 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuthStore } from '../store/authStore'
 import { useAppStore } from '../store/appStore'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { AssignmentBadge } from '../components/StatusBadge'
+import { ExportModal } from '../components/ExportModal'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from 'recharts'
 import {
-  TrendingUp, ShieldCheck, FileWarning, Users, GraduationCap,
+  TrendingUp, ShieldCheck, FileWarning, Users, GraduationCap, Download,
 } from 'lucide-react'
 
 const COMPLIANCE_COLORS: Record<string, string> = {
@@ -20,6 +21,21 @@ const COMPLIANCE_COLORS: Record<string, string> = {
   Waived: '#9ca3af',
 }
 
+const DEFAULT_EXPORT_COLUMNS = [
+  { key: 'name', label: 'Driver Name', enabled: true },
+  { key: 'employee_id', label: 'Employee ID', enabled: true },
+  { key: 'email', label: 'Email', enabled: true },
+  { key: 'phone', label: 'Phone', enabled: true },
+  { key: 'role', label: 'Role', enabled: false },
+  { key: 'training_completed', label: 'Training Completed', enabled: true },
+  { key: 'training_total', label: 'Total Assignments', enabled: true },
+  { key: 'overdue_training', label: 'Overdue Training', enabled: true },
+  { key: 'expired_docs', label: 'Expired Documents', enabled: true },
+  { key: 'expiring_docs', label: 'Expiring Documents (30d)', enabled: true },
+  { key: 'status', label: 'Compliance Status', enabled: true },
+  { key: 'hire_date', label: 'Hire Date', enabled: false },
+]
+
 export function ReportsPage() {
   const { user } = useAuthStore()
   const {
@@ -27,6 +43,8 @@ export function ReportsPage() {
     loading, fetchProfiles, fetchTrainingPrograms, fetchAssignments,
     fetchComplianceRecords, fetchDocuments,
   } = useAppStore()
+  const [exportOpen, setExportOpen] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<'all' | 'good' | 'warning' | 'critical'>('all')
 
   useEffect(() => {
     if (!user?.fleet_id) return
@@ -97,6 +115,26 @@ export function ReportsPage() {
     if (driverExpired >= 2 || overdueTraining >= 3) status = 'critical'
     return { driver, da, completedTraining, overdueTraining, driverExpired, driverExpiring, status }
   })
+
+  const filteredDriverRows = driverRows.filter(r => statusFilter === 'all' || r.status === statusFilter)
+
+  const toExportRow = (r: typeof driverRows[0]) => ({
+    name: r.driver.name ?? 'Unnamed',
+    employee_id: r.driver.employee_id ?? '',
+    email: r.driver.email,
+    phone: r.driver.phone ?? '',
+    role: r.driver.role,
+    training_completed: r.completedTraining,
+    training_total: r.da.length,
+    overdue_training: r.overdueTraining,
+    expired_docs: r.driverExpired,
+    expiring_docs: r.driverExpiring,
+    status: r.status === 'good' ? 'Good' : r.status === 'warning' ? 'Needs Attention' : 'Critical',
+    hire_date: r.driver.hire_date ? new Date(r.driver.hire_date).toLocaleDateString() : '',
+  })
+
+  const filteredExportRows = filteredDriverRows.map(toExportRow)
+  const allExportRows = driverRows.map(toExportRow)
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -232,12 +270,37 @@ export function ReportsPage() {
       </div>
 
       <div className="card">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-900">Driver Compliance Overview</h3>
-          <p className="text-xs text-gray-500 mt-0.5">{drivers.length} driver{drivers.length !== 1 ? 's' : ''} in fleet</p>
+        <div className="px-5 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Driver Compliance Overview</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {filteredDriverRows.length} of {drivers.length} driver{drivers.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <div className="flex-1" />
+          <div className="flex items-center gap-2 flex-wrap">
+            <select
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value as typeof statusFilter)}
+              className="input-field w-40 text-xs"
+            >
+              <option value="all">All Statuses</option>
+              <option value="good">Good</option>
+              <option value="warning">Needs Attention</option>
+              <option value="critical">Critical</option>
+            </select>
+            <button
+              onClick={() => setExportOpen(true)}
+              className="btn-secondary"
+              disabled={driverRows.length === 0}
+            >
+              <Download size={15} />
+              Export CSV
+            </button>
+          </div>
         </div>
-        {driverRows.length === 0 ? (
-          <p className="text-sm text-gray-400 p-6 text-center">No drivers found</p>
+        {filteredDriverRows.length === 0 ? (
+          <p className="text-sm text-gray-400 p-6 text-center">No drivers match the current filter</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -252,7 +315,7 @@ export function ReportsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {driverRows.map(({ driver, da, completedTraining, overdueTraining, driverExpired, driverExpiring, status }) => (
+                {filteredDriverRows.map(({ driver, da, completedTraining, overdueTraining, driverExpired, driverExpiring, status }) => (
                   <tr key={driver.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2.5">
@@ -293,6 +356,15 @@ export function ReportsPage() {
           </div>
         )}
       </div>
+
+      <ExportModal
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        filteredRows={filteredExportRows}
+        allRows={allExportRows}
+        defaultColumns={DEFAULT_EXPORT_COLUMNS}
+        filename={`driver-compliance-${new Date().toISOString().slice(0, 10)}.csv`}
+      />
 
       <div className="card">
         <div className="px-5 py-4 border-b border-gray-100">

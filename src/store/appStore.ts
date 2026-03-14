@@ -5,15 +5,18 @@ import * as trainingsSvc from '../services/training.service'
 import * as complianceSvc from '../services/compliance.service'
 import * as profilesSvc from '../services/profiles.service'
 import * as notificationsSvc from '../services/notifications.service'
+import * as modulesSvc from '../services/modules.service'
 import type {
   Profile, Fleet, TrainingProgram, Assignment,
   DriverCompliance, DriverDocument, Vehicle, Notification,
   CompletionRecord, DriverStats, ComplianceRequirement,
+  Module, Lesson,
 } from '../types/database'
 import type { VehicleFormData } from '../schemas/vehicle.schema'
 import type { TrainingProgramFormData, AssignmentFormData } from '../schemas/training.schema'
 import type { DriverDocumentFormData, ComplianceRecordFormData, ComplianceRequirementFormData } from '../schemas/compliance.schema'
 import type { ProfileFormData, CreateUserFormData } from '../schemas/profile.schema'
+import type { ModuleFormData, LessonFormData } from '../schemas/module.schema'
 
 interface DashboardStats {
   totalDrivers: number
@@ -38,6 +41,8 @@ interface AppState {
   completionRecords: CompletionRecord[]
   driverStats: DriverStats[]
   complianceRequirements: ComplianceRequirement[]
+  modules: Module[]
+  lessons: Record<string, Lesson[]>
   dashboardStats: DashboardStats | null
   loading: Record<string, boolean>
 
@@ -51,6 +56,8 @@ interface AppState {
   fetchNotifications: (userId: string) => Promise<void>
   fetchDashboardStats: (fleetId: string) => Promise<void>
   fetchComplianceRequirements: (fleetId: string) => Promise<void>
+  fetchModules: (programId: string) => Promise<void>
+  fetchLessons: (moduleId: string) => Promise<void>
 
   createVehicle: (fleetId: string, data: VehicleFormData) => Promise<void>
   updateVehicle: (id: string, data: Partial<VehicleFormData>) => Promise<void>
@@ -69,7 +76,16 @@ interface AppState {
   createRequirement: (fleetId: string, data: ComplianceRequirementFormData) => Promise<void>
   updateRequirement: (id: string, data: Partial<ComplianceRequirementFormData>) => Promise<void>
 
+  createModule: (fleetId: string, programId: string, data: ModuleFormData) => Promise<void>
+  updateModule: (id: string, data: Partial<ModuleFormData>) => Promise<void>
+  deleteModule: (id: string) => Promise<void>
+  createLesson: (fleetId: string, moduleId: string, data: LessonFormData) => Promise<void>
+  updateLesson: (id: string, moduleId: string, data: Partial<LessonFormData>) => Promise<void>
+  deleteLesson: (id: string, moduleId: string) => Promise<void>
+
   updateProfile: (id: string, data: Partial<ProfileFormData>) => Promise<void>
+  updateNotificationPreferences: (id: string, prefs: { prefer_email?: boolean; prefer_sms?: boolean; prefer_push?: boolean }) => Promise<void>
+  updateFleetNotificationSettings: (id: string, settings: { enable_sms_notifications?: boolean; enable_push_notifications?: boolean }) => Promise<void>
   toggleUserActive: (id: string, isActive: boolean) => Promise<void>
   createUser: (fleetId: string, data: CreateUserFormData) => Promise<void>
 
@@ -90,6 +106,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   completionRecords: [],
   driverStats: [],
   complianceRequirements: [],
+  modules: [],
+  lessons: {},
   dashboardStats: null,
   loading: {},
 
@@ -144,6 +162,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchComplianceRequirements: async (fleetId) => {
     const data = await complianceSvc.getComplianceRequirements(fleetId)
     set({ complianceRequirements: data ?? [] })
+  },
+
+  fetchModules: async (programId) => {
+    set(s => ({ loading: { ...s.loading, modules: true } }))
+    const data = await modulesSvc.getModules(programId)
+    set(s => ({ modules: data as Module[] ?? [], loading: { ...s.loading, modules: false } }))
+  },
+
+  fetchLessons: async (moduleId) => {
+    const data = await modulesSvc.getLessons(moduleId)
+    set(s => ({ lessons: { ...s.lessons, [moduleId]: data as Lesson[] ?? [] } }))
   },
 
   fetchDashboardStats: async (fleetId) => {
@@ -245,9 +274,58 @@ export const useAppStore = create<AppState>((set, get) => ({
     set(s => ({ complianceRequirements: s.complianceRequirements.map(x => x.id === id ? r as ComplianceRequirement : x) }))
   },
 
+  createModule: async (fleetId, programId, data) => {
+    const m = await modulesSvc.createModule(fleetId, programId, data)
+    set(s => ({ modules: [...s.modules, m as Module] }))
+  },
+  updateModule: async (id, data) => {
+    const m = await modulesSvc.updateModule(id, data)
+    set(s => ({ modules: s.modules.map(x => x.id === id ? m as Module : x) }))
+  },
+  deleteModule: async (id) => {
+    await modulesSvc.deleteModule(id)
+    set(s => ({
+      modules: s.modules.filter(x => x.id !== id),
+      lessons: Object.fromEntries(Object.entries(s.lessons).filter(([k]) => k !== id)),
+    }))
+  },
+  createLesson: async (fleetId, moduleId, data) => {
+    const l = await modulesSvc.createLesson(fleetId, moduleId, data)
+    set(s => ({ lessons: { ...s.lessons, [moduleId]: [...(s.lessons[moduleId] ?? []), l as Lesson] } }))
+  },
+  updateLesson: async (id, moduleId, data) => {
+    const l = await modulesSvc.updateLesson(id, data)
+    set(s => ({
+      lessons: {
+        ...s.lessons,
+        [moduleId]: (s.lessons[moduleId] ?? []).map(x => x.id === id ? l as Lesson : x),
+      },
+    }))
+  },
+  deleteLesson: async (id, moduleId) => {
+    await modulesSvc.deleteLesson(id)
+    set(s => ({
+      lessons: { ...s.lessons, [moduleId]: (s.lessons[moduleId] ?? []).filter(x => x.id !== id) },
+    }))
+  },
+
   updateProfile: async (id, data) => {
     const p = await profilesSvc.updateProfile(id, data)
     set(s => ({ profiles: s.profiles.map(x => x.id === id ? p as Profile : x) }))
+  },
+  updateNotificationPreferences: async (id, prefs) => {
+    const p = await profilesSvc.updateProfile(id, prefs as never)
+    set(s => ({ profiles: s.profiles.map(x => x.id === id ? p as Profile : x) }))
+  },
+  updateFleetNotificationSettings: async (id, settings) => {
+    const { data, error } = await supabase
+      .from('fleets')
+      .update(settings as never)
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    set({ fleet: data as Fleet })
   },
   toggleUserActive: async (id, isActive) => {
     const p = await profilesSvc.toggleUserActive(id, isActive)

@@ -43,6 +43,8 @@ export interface Fleet {
   primary_color: string | null
   secondary_color: string | null
   default_language: string
+  enable_sms_notifications: boolean
+  enable_push_notifications: boolean
   created_at: string
   updated_at: string
 }
@@ -83,6 +85,7 @@ export interface Module {
   estimated_duration: number | null
   passing_score: number
   created_at: string
+  updated_at: string
 }
 
 export interface Lesson {
@@ -91,12 +94,16 @@ export interface Lesson {
   content: string | null
   content_type: ContentType
   file_url: string | null
+  video_url: string | null
+  video_duration: number | null
+  acknowledgment_text: string | null
   sequence_order: number
   requires_esignature: boolean
   fleet_id: string
   module_id: string
   estimated_duration: number | null
   created_at: string
+  updated_at: string
 }
 
 export interface Assignment {
@@ -200,14 +207,30 @@ export interface Vehicle {
   profiles?: Profile
 }
 
+export type NotificationChannel = 'IN_APP' | 'EMAIL' | 'SMS' | 'PUSH'
+
 export interface Notification {
   id: string
   message: string
   title: string | null
   notification_type: string
+  channel: NotificationChannel
   is_read: boolean
+  is_sent: boolean
+  sent_at: string | null
   user_id: string
+  fleet_id: string | null
   action_url: string | null
+  action_label: string | null
+  created_at: string
+}
+
+export interface PushSubscription {
+  id: string
+  user_id: string
+  endpoint: string
+  p256dh_key: string
+  auth_key: string
   created_at: string
 }
 

@@ -13,7 +13,8 @@ import { ConfirmDialog } from '../components/ConfirmDialog'
 import { FormInput, FormTextarea, FormSelect } from '../components/FormField'
 import { trainingProgramSchema, assignmentSchema } from '../schemas/training.schema'
 import type { TrainingProgramFormData, AssignmentFormData } from '../schemas/training.schema'
-import { BookOpen, Search, Clock, CheckCircle, Users, GraduationCap, Plus, Pencil, Trash2 } from 'lucide-react'
+import { ContentTab } from '../components/training/ContentTab'
+import { BookOpen, Search, Clock, CircleCheck as CheckCircle, Users, GraduationCap, Plus, Pencil, Trash2 } from 'lucide-react'
 import type { TrainingProgram } from '../types/database'
 
 const priorityOptions = [
@@ -29,7 +30,7 @@ export function TrainingPage() {
   const { canManageTraining, canAssignTraining } = usePermissions()
   const toast = useToast()
   const [search, setSearch] = useState('')
-  const [tab, setTab] = useState<'programs' | 'assignments'>('programs')
+  const [tab, setTab] = useState<'programs' | 'assignments' | 'content'>('programs')
   const [programModal, setProgramModal] = useState(false)
   const [assignModal, setAssignModal] = useState(false)
   const [editingProgram, setEditingProgram] = useState<TrainingProgram | null>(null)
@@ -167,15 +168,24 @@ export function TrainingPage() {
           <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5">
             <button onClick={() => setTab('programs')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${tab === 'programs' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Programs</button>
             <button onClick={() => setTab('assignments')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${tab === 'assignments' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Assignments</button>
+            <button onClick={() => setTab('content')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${tab === 'content' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Content</button>
           </div>
           <div className="flex-1" />
-          <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} className="input-field pl-9 w-48" />
-          </div>
+          {tab !== 'content' && (
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} className="input-field pl-9 w-48" />
+            </div>
+          )}
         </div>
 
-        {tab === 'programs' ? (
+        {tab === 'content' ? (
+          <ContentTab
+            trainingPrograms={trainingPrograms}
+            fleetId={user?.fleet_id ?? ''}
+            canManage={canManageTraining}
+          />
+        ) : tab === 'programs' ? (
           filteredPrograms.length === 0 ? (
             <EmptyState icon={<BookOpen size={28} />} title="No training programs" description="Create a program to get started" />
           ) : (
