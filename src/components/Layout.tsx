@@ -2,18 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useAppStore } from '../store/appStore'
-import {
-  LayoutDashboard,
-  Users,
-  BookOpen,
-  ShieldCheck,
-  Truck,
-  Bell,
-  LogOut,
-  Menu,
-  X,
-  ChevronDown,
-} from 'lucide-react'
+import { LayoutDashboard, Users, BookOpen, ShieldCheck, Truck, Bell, LogOut, Menu, X, ChevronDown, ChartBar as BarChart2 } from 'lucide-react'
 import type { UserRole } from '../types/database'
 
 interface NavItem {
@@ -29,6 +18,7 @@ const navItems: NavItem[] = [
   { path: '/training', label: 'Training', icon: <BookOpen size={20} />, roles: ['ADMIN', 'BRANCH_MANAGER', 'SUPERVISOR', 'DRIVER_COACH', 'DRIVER'] },
   { path: '/vehicles', label: 'Fleet Vehicles', icon: <Truck size={20} />, roles: ['ADMIN', 'BRANCH_MANAGER', 'SUPERVISOR'] },
   { path: '/users', label: 'User Management', icon: <Users size={20} />, roles: ['ADMIN', 'BRANCH_MANAGER'] },
+  { path: '/reports', label: 'Reports', icon: <BarChart2 size={20} />, roles: ['ADMIN', 'BRANCH_MANAGER', 'SUPERVISOR'] },
 ]
 
 export function Layout() {

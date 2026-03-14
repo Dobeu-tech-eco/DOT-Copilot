@@ -10,9 +10,10 @@ import { EmptyState } from '../components/EmptyState'
 import { Modal } from '../components/Modal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { FormInput, FormSelect, FormSection } from '../components/FormField'
+import { DriverProfileDrawer } from '../components/DriverProfileDrawer'
 import { profileSchema, createUserSchema, USER_ROLES } from '../schemas/profile.schema'
 import type { ProfileFormData, CreateUserFormData } from '../schemas/profile.schema'
-import { Users, Search, UserCheck, UserX, Shield, UserPlus, Pencil, Power } from 'lucide-react'
+import { Users, Search, UserCheck, UserX, Shield, UserPlus, Pencil, Power, Eye } from 'lucide-react'
 import type { Profile, UserRole } from '../types/database'
 
 const roleLabels: Record<UserRole, string> = {
@@ -35,7 +36,7 @@ const roleOptions = USER_ROLES.map(r => ({ value: r, label: roleLabels[r] }))
 
 export function UsersPage() {
   const { user } = useAuthStore()
-  const { profiles, loading, fetchProfiles, updateProfile, toggleUserActive, createUser } = useAppStore()
+  const { profiles, assignments, complianceRecords, documents, vehicles, loading, fetchProfiles, fetchAssignments, fetchComplianceRecords, fetchDocuments, fetchVehicles, updateProfile, toggleUserActive, createUser } = useAppStore()
   const { canManageUsers } = usePermissions()
   const toast = useToast()
   const [search, setSearch] = useState('')
@@ -45,14 +46,21 @@ export function UsersPage() {
   const [createModal, setCreateModal] = useState(false)
   const [editing, setEditing] = useState<Profile | null>(null)
   const [toggleTarget, setToggleTarget] = useState<Profile | null>(null)
+  const [viewingDriver, setViewingDriver] = useState<Profile | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   const editForm = useForm<ProfileFormData>({ resolver: zodResolver(profileSchema) as never })
   const createForm = useForm<CreateUserFormData>({ resolver: zodResolver(createUserSchema) as never })
 
   useEffect(() => {
-    if (user?.fleet_id) fetchProfiles(user.fleet_id)
-  }, [user?.fleet_id, fetchProfiles])
+    if (user?.fleet_id) {
+      fetchProfiles(user.fleet_id)
+      fetchAssignments(user.fleet_id)
+      fetchComplianceRecords(user.fleet_id)
+      fetchDocuments(user.fleet_id)
+      fetchVehicles(user.fleet_id)
+    }
+  }, [user?.fleet_id, fetchProfiles, fetchAssignments, fetchComplianceRecords, fetchDocuments, fetchVehicles])
 
   const openEdit = (p: Profile) => {
     setEditing(p)
@@ -180,7 +188,7 @@ export function UsersPage() {
                   <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Employee ID</th>
                   <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Last Login</th>
                   <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Status</th>
-                  {canManageUsers && <th className="text-right text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Actions</th>}
+                  <th className="text-right text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -201,18 +209,23 @@ export function UsersPage() {
                     <td className="px-5 py-3.5 text-sm text-gray-600">{p.employee_id ?? '-'}</td>
                     <td className="px-5 py-3.5 text-sm text-gray-600">{p.last_login_at ? new Date(p.last_login_at).toLocaleDateString() : 'Never'}</td>
                     <td className="px-5 py-3.5">{p.is_active ? <span className="badge badge-success">Active</span> : <span className="badge badge-neutral">Inactive</span>}</td>
-                    {canManageUsers && (
-                      <td className="px-5 py-3.5 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => openEdit(p)} className="p-1.5 text-gray-400 hover:text-baldor-600 hover:bg-baldor-50 rounded-lg transition-colors" title="Edit">
-                            <Pencil size={14} />
-                          </button>
-                          <button onClick={() => setToggleTarget(p)} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title={p.is_active ? 'Deactivate' : 'Activate'}>
-                            <Power size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    )}
+                    <td className="px-5 py-3.5 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => setViewingDriver(p)} className="p-1.5 text-gray-400 hover:text-baldor-600 hover:bg-baldor-50 rounded-lg transition-colors" title="View profile">
+                          <Eye size={14} />
+                        </button>
+                        {canManageUsers && (
+                          <>
+                            <button onClick={() => openEdit(p)} className="p-1.5 text-gray-400 hover:text-baldor-600 hover:bg-baldor-50 rounded-lg transition-colors" title="Edit">
+                              <Pencil size={14} />
+                            </button>
+                            <button onClick={() => setToggleTarget(p)} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title={p.is_active ? 'Deactivate' : 'Activate'}>
+                              <Power size={14} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -264,6 +277,15 @@ export function UsersPage() {
         message={`Are you sure you want to ${toggleTarget?.is_active ? 'deactivate' : 'activate'} ${toggleTarget?.name ?? 'this user'}?`}
         confirmLabel={toggleTarget?.is_active ? 'Deactivate' : 'Activate'}
         loading={submitting}
+      />
+
+      <DriverProfileDrawer
+        driver={viewingDriver}
+        assignments={assignments}
+        complianceRecords={complianceRecords}
+        documents={documents}
+        vehicles={vehicles}
+        onClose={() => setViewingDriver(null)}
       />
     </div>
   )

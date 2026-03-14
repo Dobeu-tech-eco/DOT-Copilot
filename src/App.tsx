@@ -13,6 +13,7 @@ import { TrainingPage } from './pages/TrainingPage'
 import { VehiclesPage } from './pages/VehiclesPage'
 import { UsersPage } from './pages/UsersPage'
 import { NotificationsPage } from './pages/NotificationsPage'
+import { ReportsPage } from './pages/ReportsPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -56,6 +57,7 @@ export default function App() {
             <Route path="/vehicles" element={<VehiclesPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
+            <Route path="/reports" element={<ReportsPage />} />
           </Route>
 
           <Route path="*" element={<NotFoundPage />} />
