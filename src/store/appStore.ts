@@ -92,6 +92,7 @@ interface AppState {
   markNotificationRead: (id: string) => Promise<void>
   markAllNotificationsRead: (userId: string) => Promise<void>
   deleteNotification: (id: string) => Promise<void>
+  sendNotification: (opts: import('../services/notifications.service').SendNotificationOptions) => Promise<{ sent: boolean; sendError: string | null }>
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -346,5 +347,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   deleteNotification: async (id) => {
     await notificationsSvc.deleteNotification(id)
     set(s => ({ notifications: s.notifications.filter(n => n.id !== id) }))
+  },
+  sendNotification: async (opts) => {
+    return notificationsSvc.sendNotification(opts)
   },
 }))

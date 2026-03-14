@@ -1,5 +1,36 @@
 import { supabase } from '../lib/supabase'
 
+export interface SendNotificationOptions {
+  user_id: string
+  title: string
+  message: string
+  notification_type: string
+  channel: 'IN_APP' | 'EMAIL' | 'SMS' | 'PUSH'
+  action_url?: string
+  action_label?: string
+  fleet_id?: string
+}
+
+export async function sendNotification(opts: SendNotificationOptions): Promise<{ sent: boolean; sendError: string | null }> {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+  const { data: { session } } = await supabase.auth.getSession()
+  const res = await fetch(`${supabaseUrl}/functions/v1/send-notification`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session?.access_token ?? supabaseAnonKey}`,
+      'Apikey': supabaseAnonKey,
+    },
+    body: JSON.stringify(opts),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error || 'Failed to send notification')
+  }
+  return res.json()
+}
+
 export async function getNotifications(userId: string) {
   const { data, error } = await supabase
     .from('notifications')
