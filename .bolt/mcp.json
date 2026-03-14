@@ -8,6 +8,9 @@
     },
     "context7": {
       "enabled": true
+    },
+    "sentry": {
+      "enabled": true
     }
   }
 }
