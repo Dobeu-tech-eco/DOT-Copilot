@@ -23,14 +23,15 @@ const defaultProviderOptions = {
   },
 };
 
-export async function generateAIContent(prompt: string, model: string = 'gpt-4o', systemMessage?: string) {
+export async function generateAIContent(prompt: string | any[], model: string = 'gpt-4o', systemMessage?: string) {
   try {
     const { text } = await generateText({
       model: openai(model),
       system: systemMessage || 'You are a helpful assistant for the DOT-Copilot fleet management platform.',
-      prompt,
+      ...(Array.isArray(prompt) ? { messages: prompt } : { prompt }),
       providerOptions: defaultProviderOptions,
     });
+
     return text;
   } catch (error) {
     logError('Error generating AI content via Vercel AI Gateway', error as Error);
