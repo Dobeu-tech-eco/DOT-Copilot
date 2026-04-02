@@ -41,6 +41,7 @@ import btwRoutes from './routes/btw';
 import remindersRoutes from './routes/reminders';
 import devicesRoutes from './routes/devices';
 import i18nRoutes from './routes/i18n';
+import aiRoutes from './routes/ai';
 
 const app: Express = express();
 const PORT = process.env.PORT || 3001;
@@ -235,6 +236,7 @@ app.use('/api/btw', btwRoutes);
 app.use('/api/reminders', remindersRoutes);
 app.use('/api/devices', devicesRoutes);
 app.use('/api/i18n', i18nRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Error logging middleware
 app.use(errorLogger);
@@ -272,9 +274,13 @@ process.on('unhandledRejection', (reason, promise) => {
   }
 });
 
-app.listen(PORT, () => {
-  logInfo(`Server started`, { port: PORT, env: process.env.NODE_ENV || 'development' });
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+
+// Conditionally start the server if not running in a serverless environment like Vercel
+if (process.env.NODE_ENV !== 'production' || process.env.RENDER || !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    logInfo(`Server started`, { port: PORT, env: process.env.NODE_ENV || 'development' });
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
+}
 
 export default app;
