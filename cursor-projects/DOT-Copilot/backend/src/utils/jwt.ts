@@ -9,7 +9,7 @@ function requireSecret(name: string): string {
   return value || `dev-only-fallback-${name}`;
 }
 
-const JWT_SECRET = requireSecret('JWT_SECRET');
+export const JWT_SECRET = requireSecret('JWT_SECRET');
 const JWT_REFRESH_SECRET = requireSecret('JWT_REFRESH_SECRET');
 
 const tokenBlacklist = new Set<string>();

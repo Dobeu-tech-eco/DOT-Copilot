@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../db';
 import { hashPassword, verifyPassword } from '../utils/password';
-import { generateTokenPair, verifyRefreshToken, blacklistToken, isTokenBlacklisted, hashToken } from '../utils/jwt';
+import { generateTokenPair, verifyRefreshToken, blacklistToken, isTokenBlacklisted, hashToken, JWT_SECRET } from '../utils/jwt';
 import { validateBody, loginSchema, registerSchema, resetPasswordSchema, refreshTokenSchema } from '../schemas';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { emailService } from '../services/email';
@@ -161,10 +161,9 @@ function generateResetToken(userId: string, email: string): string {
     exp: Date.now() + 3600000,
   };
   
-  const secret = process.env.JWT_SECRET || 'dev-only-fallback-JWT_SECRET';
   const data = JSON.stringify(payload);
   const signature = crypto
-    .createHmac('sha256', secret)
+    .createHmac('sha256', JWT_SECRET)
     .update(data)
     .digest('hex');
   
@@ -173,7 +172,6 @@ function generateResetToken(userId: string, email: string): string {
 }
 
 function verifyResetToken(token: string): { userId: string; email: string; nonce: string } {
-  const secret = process.env.JWT_SECRET || 'dev-only-fallback-JWT_SECRET';
   const [dataB64, signature] = token.split('.');
   
   if (!dataB64 || !signature) {
@@ -182,7 +180,7 @@ function verifyResetToken(token: string): { userId: string; email: string; nonce
   
   const data = Buffer.from(dataB64, 'base64').toString('utf-8');
   const expectedSignature = crypto
-    .createHmac('sha256', secret)
+    .createHmac('sha256', JWT_SECRET)
     .update(data)
     .digest('hex');
   
