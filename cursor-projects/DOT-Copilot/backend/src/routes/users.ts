@@ -8,6 +8,45 @@ const router = Router();
 
 router.use(authenticate);
 
+router.get('/me', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      include: { fleet: true, location: true },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      data: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        fleet_id: user.fleetId,
+        location_id: user.locationId,
+        phone: user.phone,
+        preferred_language: user.preferredLanguage,
+        timezone: user.timezone,
+        prefer_email: user.preferEmail,
+        prefer_sms: user.preferSms,
+        prefer_push: user.preferPush,
+        employee_id: user.employeeId,
+        hire_date: user.hireDate?.toISOString() || null,
+        is_active: user.isActive,
+        last_login_at: user.lastLoginAt?.toISOString() || null,
+        created_at: user.createdAt.toISOString(),
+        updated_at: user.updatedAt.toISOString(),
+      },
+    });
+  } catch (error: any) {
+    console.error('Get current user error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.get('/', validateQuery(paginationSchema), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { page, limit } = req.query as any;

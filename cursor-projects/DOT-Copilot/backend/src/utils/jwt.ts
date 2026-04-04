@@ -44,6 +44,7 @@ export interface TokenPayload {
   userId: string;
   email: string;
   role: string;
+  fleetId?: string;
 }
 
 export function generateAccessToken(payload: TokenPayload): string {

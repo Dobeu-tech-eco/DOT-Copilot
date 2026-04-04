@@ -416,8 +416,7 @@ export const demoDriverStats: DriverStats[] = [
 ]
 
 export function isDemoMode(): boolean {
-  if (!import.meta.env.DEV) return false
-  return !import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL === 'https://placeholder.supabase.co'
+  return import.meta.env.VITE_DEMO_MODE === 'true'
 }
 
 export const DEMO_FLEET_ID = FLEET_ID

@@ -108,7 +108,7 @@ router.post('/requirements', requireRole('ADMIN', 'SUPERVISOR'), async (req: Aut
     res.status(201).json({ data: requirement });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation error', details: error.errors });
+      return res.status(400).json({ error: 'Validation error', details: error.issues });
     }
     console.error('Create compliance requirement error:', error);
     res.status(500).json({ error: 'Internal server error' });
