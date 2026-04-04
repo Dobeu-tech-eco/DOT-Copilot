@@ -1,19 +1,13 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../db';
 import { hashPassword, verifyPassword } from '../utils/password';
-import { generateTokenPair, verifyRefreshToken, blacklistToken, hashToken } from '../utils/jwt';
+import { generateTokenPair, verifyRefreshToken, blacklistToken, isTokenBlacklisted, hashToken } from '../utils/jwt';
 import { validateBody, loginSchema, registerSchema, resetPasswordSchema, refreshTokenSchema } from '../schemas';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { emailService } from '../services/email';
 import crypto from 'crypto';
 
 const router = Router();
-
-const usedResetTokens = new Set<string>();
-const RESET_TOKEN_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
-setInterval(() => {
-  usedResetTokens.clear();
-}, RESET_TOKEN_CLEANUP_INTERVAL_MS);
 
 router.post('/login', validateBody(loginSchema), async (req: Request, res: Response) => {
   try {
@@ -107,6 +101,10 @@ router.post('/refresh', validateBody(refreshTokenSchema), async (req: Request, r
   try {
     const { refreshToken } = req.body;
 
+    if (isTokenBlacklisted(refreshToken)) {
+      return res.status(401).json({ error: 'Refresh token has been revoked', code: 'TOKEN_REVOKED' });
+    }
+
     const payload = verifyRefreshToken(refreshToken);
 
     const user = await prisma.user.findUnique({
@@ -116,6 +114,8 @@ router.post('/refresh', validateBody(refreshTokenSchema), async (req: Request, r
     if (!user) {
       return res.status(401).json({ error: 'User not found' });
     }
+
+    blacklistToken(refreshToken, 7 * 24 * 60 * 60 * 1000);
 
     const tokens = generateTokenPair({
       userId: user.id,
@@ -135,8 +135,14 @@ router.post('/refresh', validateBody(refreshTokenSchema), async (req: Request, r
 router.post('/logout', authenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (req.token) {
-      blacklistToken(req.token);
+      blacklistToken(req.token, 15 * 60 * 1000);
     }
+
+    const { refreshToken } = req.body;
+    if (refreshToken && typeof refreshToken === 'string') {
+      blacklistToken(refreshToken, 7 * 24 * 60 * 60 * 1000);
+    }
+
     res.json({ message: 'Logged out successfully' });
   } catch (error: any) {
     console.error('Logout error:', error);
@@ -208,7 +214,20 @@ router.post('/reset-password', validateBody(resetPasswordSchema), async (req: Re
     }
 
     const resetToken = generateResetToken(user.id, user.email);
-    
+    const tokenHash = hashToken(resetToken);
+
+    await prisma.passwordResetToken.deleteMany({
+      where: { userId: user.id },
+    });
+
+    await prisma.passwordResetToken.create({
+      data: {
+        tokenHash,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 3600000),
+      },
+    });
+
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const resetUrl = `${frontendUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
     
@@ -245,8 +264,21 @@ router.post('/reset-password/confirm', async (req: Request, res: Response) => {
     }
 
     const tokenHash = hashToken(token);
-    if (usedResetTokens.has(tokenHash)) {
+
+    const storedToken = await prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+    });
+
+    if (!storedToken) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+
+    if (storedToken.usedAt) {
       return res.status(400).json({ error: 'This reset token has already been used' });
+    }
+
+    if (new Date() > storedToken.expiresAt) {
+      return res.status(400).json({ error: 'Token has expired' });
     }
 
     const user = await prisma.user.findUnique({ 
@@ -258,13 +290,17 @@ router.post('/reset-password/confirm', async (req: Request, res: Response) => {
     }
 
     const passwordHash = await hashPassword(newPassword);
-    
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { passwordHash },
-    });
 
-    usedResetTokens.add(tokenHash);
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash },
+      }),
+      prisma.passwordResetToken.update({
+        where: { tokenHash },
+        data: { usedAt: new Date() },
+      }),
+    ]);
 
     res.json({ message: 'Password has been reset successfully' });
   } catch (error: any) {
