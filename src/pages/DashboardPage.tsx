@@ -26,16 +26,24 @@ export function DashboardPage() {
   const {
     dashboardStats, assignments, complianceRecords, documents,
     loading, fetchDashboardStats, fetchAssignments, fetchComplianceRecords, fetchDocuments,
+    fetchProfiles, fetchVehicles,
   } = useAppStore()
 
   useEffect(() => {
     if (user?.fleet_id) {
-      fetchDashboardStats(user.fleet_id)
-      fetchAssignments(user.fleet_id)
-      fetchComplianceRecords(user.fleet_id)
-      fetchDocuments(user.fleet_id)
+      const loadAll = async () => {
+        await Promise.all([
+          fetchProfiles(user.fleet_id!),
+          fetchVehicles(user.fleet_id!),
+          fetchAssignments(user.fleet_id!),
+          fetchComplianceRecords(user.fleet_id!),
+          fetchDocuments(user.fleet_id!),
+        ])
+        await fetchDashboardStats(user.fleet_id!)
+      }
+      loadAll()
     }
-  }, [user?.fleet_id, fetchDashboardStats, fetchAssignments, fetchComplianceRecords, fetchDocuments])
+  }, [user?.fleet_id])
 
   if (loading.dashboard) return <LoadingSpinner />
 

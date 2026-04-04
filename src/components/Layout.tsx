@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   ChevronDown,
+  Settings,
 } from 'lucide-react'
 import type { UserRole } from '../types/database'
 
@@ -29,6 +30,7 @@ const navItems: NavItem[] = [
   { path: '/training', label: 'Training', icon: <BookOpen size={20} />, roles: ['ADMIN', 'BRANCH_MANAGER', 'SUPERVISOR', 'DRIVER_COACH', 'DRIVER'] },
   { path: '/vehicles', label: 'Fleet Vehicles', icon: <Truck size={20} />, roles: ['ADMIN', 'BRANCH_MANAGER', 'SUPERVISOR'] },
   { path: '/users', label: 'User Management', icon: <Users size={20} />, roles: ['ADMIN', 'BRANCH_MANAGER'] },
+  { path: '/settings', label: 'Settings', icon: <Settings size={20} />, roles: ['ADMIN'] },
 ]
 
 export function Layout() {

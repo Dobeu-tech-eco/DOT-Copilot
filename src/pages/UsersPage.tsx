@@ -3,8 +3,10 @@ import { useAuthStore } from '../store/authStore'
 import { useAppStore } from '../store/appStore'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { EmptyState } from '../components/EmptyState'
-import { Users, Search, UserCheck, UserX, Shield } from 'lucide-react'
-import type { UserRole } from '../types/database'
+import { Modal } from '../components/Modal'
+import { TextInput, SelectInput, DateInput, CheckboxInput } from '../components/FormFields'
+import { Users, Search, UserCheck, UserX, Shield, Plus, Pencil } from 'lucide-react'
+import type { UserRole, Profile } from '../types/database'
 
 const roleLabels: Record<UserRole, string> = {
   ADMIN: 'Administrator',
@@ -22,18 +24,109 @@ const roleColors: Record<UserRole, string> = {
   DRIVER: 'badge-neutral',
 }
 
+const roleOptions = [
+  { value: 'DRIVER', label: 'Driver' },
+  { value: 'DRIVER_COACH', label: 'Driver Coach' },
+  { value: 'SUPERVISOR', label: 'Supervisor' },
+  { value: 'BRANCH_MANAGER', label: 'Branch Manager' },
+  { value: 'ADMIN', label: 'Administrator' },
+]
+
+const emptyForm = {
+  name: '',
+  email: '',
+  role: 'DRIVER' as UserRole,
+  phone: '',
+  employee_id: '',
+  hire_date: '',
+  is_active: true,
+  preferred_language: 'en',
+  timezone: 'America/New_York',
+  prefer_email: true,
+  prefer_sms: false,
+  prefer_push: false,
+  fleet_id: '',
+  location_id: null as string | null,
+  last_login_at: null as string | null,
+}
+
 export function UsersPage() {
   const { user } = useAuthStore()
-  const { profiles, loading, fetchProfiles } = useAppStore()
+  const { profiles, loading, fetchProfiles, addProfile, updateProfile } = useAppStore()
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<UserRole | ''>('')
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | ''>('')
+  const [showModal, setShowModal] = useState(false)
+  const [editingUser, setEditingUser] = useState<Profile | null>(null)
+  const [form, setForm] = useState(emptyForm)
 
   useEffect(() => {
     if (user?.fleet_id) {
       fetchProfiles(user.fleet_id)
     }
   }, [user?.fleet_id, fetchProfiles])
+
+  const openAdd = () => {
+    setEditingUser(null)
+    setForm({ ...emptyForm, fleet_id: user?.fleet_id ?? '' })
+    setShowModal(true)
+  }
+
+  const openEdit = (p: Profile) => {
+    setEditingUser(p)
+    setForm({
+      name: p.name ?? '',
+      email: p.email,
+      role: p.role,
+      phone: p.phone ?? '',
+      employee_id: p.employee_id ?? '',
+      hire_date: p.hire_date ?? '',
+      is_active: p.is_active,
+      preferred_language: p.preferred_language,
+      timezone: p.timezone,
+      prefer_email: p.prefer_email,
+      prefer_sms: p.prefer_sms,
+      prefer_push: p.prefer_push,
+      fleet_id: p.fleet_id ?? '',
+      location_id: p.location_id,
+      last_login_at: p.last_login_at,
+    })
+    setShowModal(true)
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (editingUser) {
+      updateProfile(editingUser.id, {
+        name: form.name || null,
+        email: form.email,
+        role: form.role,
+        phone: form.phone || null,
+        employee_id: form.employee_id || null,
+        hire_date: form.hire_date || null,
+        is_active: form.is_active,
+      })
+    } else {
+      addProfile({
+        name: form.name || null,
+        email: form.email,
+        role: form.role,
+        phone: form.phone || null,
+        employee_id: form.employee_id || null,
+        hire_date: form.hire_date || null,
+        is_active: form.is_active,
+        fleet_id: user?.fleet_id ?? null,
+        location_id: null,
+        preferred_language: 'en',
+        timezone: 'America/New_York',
+        prefer_email: form.prefer_email,
+        prefer_sms: form.prefer_sms,
+        prefer_push: form.prefer_push,
+        last_login_at: null,
+      })
+    }
+    setShowModal(false)
+  }
 
   if (loading.profiles) return <LoadingSpinner />
 
@@ -55,9 +148,14 @@ export function UsersPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-        <p className="text-sm text-gray-500 mt-1">Manage drivers, supervisors, and administrator accounts</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
+          <p className="text-sm text-gray-500 mt-1">Manage drivers, supervisors, and administrator accounts</p>
+        </div>
+        <button onClick={openAdd} className="btn-primary">
+          <Plus size={16} /> Add User
+        </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -135,6 +233,7 @@ export function UsersPage() {
             icon={<Users size={28} />}
             title="No users found"
             description="Users will appear here once accounts are created"
+            action={<button onClick={openAdd} className="btn-primary text-sm"><Plus size={14} /> Add First User</button>}
           />
         ) : (
           <div className="overflow-x-auto">
@@ -147,6 +246,7 @@ export function UsersPage() {
                   <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Phone</th>
                   <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Last Login</th>
                   <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Status</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -175,6 +275,15 @@ export function UsersPage() {
                         : <span className="badge badge-neutral">Inactive</span>
                       }
                     </td>
+                    <td className="px-5 py-3.5">
+                      <button
+                        onClick={() => openEdit(p)}
+                        className="p-1.5 text-gray-400 hover:text-baldor-600 hover:bg-baldor-50 rounded-lg transition-colors"
+                        title="Edit user"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -182,6 +291,40 @@ export function UsersPage() {
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title={editingUser ? 'Edit User' : 'Add New User'}
+        size="lg"
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <TextInput label="Full Name" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} placeholder="John Doe" required />
+            <TextInput label="Email" value={form.email} onChange={v => setForm(f => ({ ...f, email: v }))} type="email" placeholder="john@company.com" required />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <SelectInput label="Role" value={form.role} onChange={v => setForm(f => ({ ...f, role: v as UserRole }))} options={roleOptions} required />
+            <TextInput label="Phone" value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} type="tel" placeholder="(555) 123-4567" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <TextInput label="Employee ID" value={form.employee_id} onChange={v => setForm(f => ({ ...f, employee_id: v }))} placeholder="EMP-001" />
+            <DateInput label="Hire Date" value={form.hire_date} onChange={v => setForm(f => ({ ...f, hire_date: v }))} />
+          </div>
+          <div className="pt-2 border-t border-gray-100">
+            <CheckboxInput
+              label="Active Account"
+              checked={form.is_active}
+              onChange={v => setForm(f => ({ ...f, is_active: v }))}
+              description="Inactive accounts cannot log in"
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+            <button type="button" onClick={() => setShowModal(false)} className="btn-secondary">Cancel</button>
+            <button type="submit" className="btn-primary">{editingUser ? 'Save Changes' : 'Add User'}</button>
+          </div>
+        </form>
+      </Modal>
     </div>
   )
 }
