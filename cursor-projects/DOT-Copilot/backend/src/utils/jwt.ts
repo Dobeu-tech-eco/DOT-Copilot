@@ -1,7 +1,44 @@
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-me';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret-change-me';
+function requireSecret(name: string): string {
+  const value = process.env[name];
+  if (!value && process.env.NODE_ENV === 'production') {
+    throw new Error(`FATAL: ${name} environment variable is required in production. Generate one with: openssl rand -base64 32`);
+  }
+  return value || `dev-only-fallback-${name}`;
+}
+
+const JWT_SECRET = requireSecret('JWT_SECRET');
+const JWT_REFRESH_SECRET = requireSecret('JWT_REFRESH_SECRET');
+
+const tokenBlacklist = new Set<string>();
+const BLACKLIST_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+const blacklistExpiry = new Map<string, number>();
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [hash, expiry] of blacklistExpiry) {
+    if (now > expiry) {
+      tokenBlacklist.delete(hash);
+      blacklistExpiry.delete(hash);
+    }
+  }
+}, BLACKLIST_CLEANUP_INTERVAL_MS);
+
+export function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+export function blacklistToken(token: string, expiresInMs: number = 15 * 60 * 1000): void {
+  const hash = hashToken(token);
+  tokenBlacklist.add(hash);
+  blacklistExpiry.set(hash, Date.now() + expiresInMs);
+}
+
+export function isTokenBlacklisted(token: string): boolean {
+  return tokenBlacklist.has(hashToken(token));
+}
 
 export interface TokenPayload {
   userId: string;

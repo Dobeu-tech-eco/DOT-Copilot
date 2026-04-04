@@ -1,12 +1,19 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../db';
 import { hashPassword, verifyPassword } from '../utils/password';
-import { generateTokenPair, verifyRefreshToken } from '../utils/jwt';
+import { generateTokenPair, verifyRefreshToken, blacklistToken, hashToken } from '../utils/jwt';
 import { validateBody, loginSchema, registerSchema, resetPasswordSchema, refreshTokenSchema } from '../schemas';
+import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { emailService } from '../services/email';
 import crypto from 'crypto';
 
 const router = Router();
+
+const usedResetTokens = new Set<string>();
+const RESET_TOKEN_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+setInterval(() => {
+  usedResetTokens.clear();
+}, RESET_TOKEN_CLEANUP_INTERVAL_MS);
 
 router.post('/login', validateBody(loginSchema), async (req: Request, res: Response) => {
   try {
@@ -52,7 +59,7 @@ router.post('/login', validateBody(loginSchema), async (req: Request, res: Respo
 
 router.post('/register', validateBody(registerSchema), async (req: Request, res: Response) => {
   try {
-    const { email, password, name, role, fleetId } = req.body;
+    const { email, password, name, fleetId } = req.body;
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -66,7 +73,7 @@ router.post('/register', validateBody(registerSchema), async (req: Request, res:
         email,
         passwordHash,
         name,
-        role: role || 'DRIVER',
+        role: 'DRIVER',
         fleetId,
       },
       include: { fleet: true },
@@ -125,25 +132,30 @@ router.post('/refresh', validateBody(refreshTokenSchema), async (req: Request, r
   }
 });
 
-router.post('/logout', async (req: Request, res: Response) => {
-  // In a production app, you might want to blacklist the token
-  res.json({ message: 'Logged out successfully' });
+router.post('/logout', authenticate, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (req.token) {
+      blacklistToken(req.token);
+    }
+    res.json({ message: 'Logged out successfully' });
+  } catch (error: any) {
+    console.error('Logout error:', error);
+    res.json({ message: 'Logged out successfully' });
+  }
 });
 
-/**
- * Generate a secure password reset token
- * Uses a time-limited signed token approach
- */
 function generateResetToken(userId: string, email: string): string {
+  const nonce = crypto.randomBytes(16).toString('hex');
   const payload = {
     userId,
     email,
+    nonce,
     purpose: 'password-reset',
     iat: Date.now(),
-    exp: Date.now() + 3600000, // 1 hour expiration
+    exp: Date.now() + 3600000,
   };
   
-  const secret = process.env.JWT_SECRET || 'fallback-secret-change-me';
+  const secret = process.env.JWT_SECRET || 'dev-only-fallback-JWT_SECRET';
   const data = JSON.stringify(payload);
   const signature = crypto
     .createHmac('sha256', secret)
@@ -154,12 +166,8 @@ function generateResetToken(userId: string, email: string): string {
   return token;
 }
 
-/**
- * Verify a password reset token
- * Returns the payload if valid, throws if invalid
- */
-function verifyResetToken(token: string): { userId: string; email: string } {
-  const secret = process.env.JWT_SECRET || 'fallback-secret-change-me';
+function verifyResetToken(token: string): { userId: string; email: string; nonce: string } {
+  const secret = process.env.JWT_SECRET || 'dev-only-fallback-JWT_SECRET';
   const [dataB64, signature] = token.split('.');
   
   if (!dataB64 || !signature) {
@@ -172,7 +180,7 @@ function verifyResetToken(token: string): { userId: string; email: string } {
     .update(data)
     .digest('hex');
   
-  if (signature !== expectedSignature) {
+  if (!crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSignature, 'hex'))) {
     throw new Error('Invalid token signature');
   }
   
@@ -186,7 +194,7 @@ function verifyResetToken(token: string): { userId: string; email: string } {
     throw new Error('Token has expired');
   }
   
-  return { userId: payload.userId, email: payload.email };
+  return { userId: payload.userId, email: payload.email, nonce: payload.nonce };
 }
 
 router.post('/reset-password', validateBody(resetPasswordSchema), async (req: Request, res: Response) => {
@@ -195,24 +203,19 @@ router.post('/reset-password', validateBody(resetPasswordSchema), async (req: Re
 
     const user = await prisma.user.findUnique({ where: { email } });
 
-    // Always return success to prevent email enumeration
     if (!user) {
       return res.json({ message: 'If the email exists, a password reset link has been sent' });
     }
 
-    // Generate a secure reset token
     const resetToken = generateResetToken(user.id, user.email);
     
-    // Build the reset URL
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const resetUrl = `${frontendUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
     
-    // Send the password reset email
     const emailSent = await emailService.sendPasswordReset(email, resetToken, resetUrl);
     
     if (!emailSent) {
       console.error(`Failed to send password reset email to: ${email}`);
-      // Still return success to prevent enumeration, but log the error
     }
 
     res.json({ message: 'If the email exists, a password reset link has been sent' });
@@ -234,7 +237,6 @@ router.post('/reset-password/confirm', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }
 
-    // Verify the reset token
     let tokenPayload;
     try {
       tokenPayload = verifyResetToken(token);
@@ -242,7 +244,11 @@ router.post('/reset-password/confirm', async (req: Request, res: Response) => {
       return res.status(400).json({ error: err.message || 'Invalid or expired reset token' });
     }
 
-    // Find the user
+    const tokenHash = hashToken(token);
+    if (usedResetTokens.has(tokenHash)) {
+      return res.status(400).json({ error: 'This reset token has already been used' });
+    }
+
     const user = await prisma.user.findUnique({ 
       where: { id: tokenPayload.userId } 
     });
@@ -251,13 +257,14 @@ router.post('/reset-password/confirm', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Invalid reset token' });
     }
 
-    // Hash the new password and update
     const passwordHash = await hashPassword(newPassword);
     
     await prisma.user.update({
       where: { id: user.id },
       data: { passwordHash },
     });
+
+    usedResetTokens.add(tokenHash);
 
     res.json({ message: 'Password has been reset successfully' });
   } catch (error: any) {

@@ -74,7 +74,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (email: string, password: string) => {
     set({ loading: true, error: null })
 
-    if (email === 'jeremyw' && password === '3938') {
+    if (import.meta.env.DEV && email === 'jeremyw' && password === '3938') {
       const demoProfile: Profile = {
         id: 'demo-user-jeremyw',
         email: 'jeremyw@baldorfood.com',

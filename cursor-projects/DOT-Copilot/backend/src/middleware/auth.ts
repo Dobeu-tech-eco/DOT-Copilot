@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyAccessToken, TokenPayload } from '../utils/jwt';
+import { verifyAccessToken, isTokenBlacklisted, TokenPayload } from '../utils/jwt';
 
 export interface AuthenticatedRequest extends Request {
   user?: TokenPayload;
+  token?: string;
 }
 
 export const authenticate = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -14,9 +15,14 @@ export const authenticate = (req: AuthenticatedRequest, res: Response, next: Nex
 
   const token = authHeader.substring(7);
   
+  if (isTokenBlacklisted(token)) {
+    return res.status(401).json({ error: 'Token has been revoked', code: 'TOKEN_REVOKED' });
+  }
+
   try {
     const payload = verifyAccessToken(token);
     req.user = payload;
+    req.token = token;
     next();
   } catch (error: any) {
     if (error.name === 'TokenExpiredError') {
