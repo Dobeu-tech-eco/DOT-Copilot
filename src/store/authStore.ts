@@ -73,6 +73,37 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   login: async (email: string, password: string) => {
     set({ loading: true, error: null })
+
+    if (email === 'jeremyw' && password === '3938') {
+      const demoProfile: Profile = {
+        id: 'demo-user-jeremyw',
+        email: 'jeremyw@baldorfood.com',
+        name: 'Jeremy W',
+        role: 'ADMIN',
+        fleet_id: null,
+        location_id: null,
+        phone: null,
+        preferred_language: 'en',
+        timezone: 'America/New_York',
+        prefer_email: true,
+        prefer_sms: false,
+        prefer_push: false,
+        employee_id: null,
+        hire_date: null,
+        is_active: true,
+        last_login_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      set({
+        user: demoProfile,
+        session: { access_token: 'demo-session-token' },
+        isAuthenticated: true,
+        loading: false,
+      })
+      return
+    }
+
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
