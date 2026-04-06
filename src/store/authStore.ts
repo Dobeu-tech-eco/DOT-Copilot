@@ -68,36 +68,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (email: string, password: string) => {
     set({ loading: true, error: null })
 
-    if (import.meta.env.DEV && email === 'jeremyw' && password === '3938') {
-      const demoProfile: Profile = {
-        id: 'demo-user-jeremyw',
-        email: 'jeremyw@baldorfood.com',
-        name: 'Jeremy Williams',
-        role: 'ADMIN',
-        fleet_id: 'demo-fleet-baldor',
-        location_id: 'loc-bronx',
-        phone: '(212) 555-0100',
-        preferred_language: 'en',
-        timezone: 'America/New_York',
-        prefer_email: true,
-        prefer_sms: true,
-        prefer_push: true,
-        employee_id: 'BFC-001',
-        hire_date: '2020-03-15',
-        is_active: true,
-        last_login_at: new Date().toISOString(),
-        created_at: '2020-03-15T00:00:00Z',
-        updated_at: new Date().toISOString(),
-      }
-      set({
-        user: demoProfile,
-        session: { access_token: 'demo-session-token' },
-        isAuthenticated: true,
-        loading: false,
-      })
-      return
-    }
-
     try {
       const res = await api.post<{ data: any }>('/auth/login', { email, password })
       const { user, accessToken, refreshToken } = res.data
