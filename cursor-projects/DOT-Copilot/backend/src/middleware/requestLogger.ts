@@ -4,10 +4,11 @@ import { logHttp, logError } from '../services/logger';
 export const requestLogger = (req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
 
-  // Log when response finishes
   res.on('finish', () => {
     const duration = Date.now() - start;
-    logHttp(req.method, req.path, res.statusCode, duration);
+    logHttp(req.method, req.path, res.statusCode, duration, {
+      correlationId: req.correlationId,
+    });
   });
 
   next();

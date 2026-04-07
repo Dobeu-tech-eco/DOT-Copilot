@@ -1,11 +1,21 @@
-# Dependabot configuration for automated security updates
-# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
-
 version: 2
 updates:
-  # Backend Node.js dependencies
   - package-ecosystem: "npm"
-    directory: "/backend"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "root-web"
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: "npm"
+    directory: "/cursor-projects/DOT-Copilot/backend"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -18,7 +28,6 @@ updates:
     commit-message:
       prefix: "chore(deps)"
     groups:
-      # Group minor and patch updates together
       development:
         dependency-type: "development"
         update-types:
@@ -29,9 +38,8 @@ updates:
         update-types:
           - "patch"
 
-  # Frontend Node.js dependencies
   - package-ecosystem: "npm"
-    directory: "/frontend"
+    directory: "/cursor-projects/DOT-Copilot/frontend"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -54,7 +62,6 @@ updates:
         update-types:
           - "patch"
 
-  # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -65,4 +72,3 @@ updates:
       - "ci"
     commit-message:
       prefix: "chore(ci)"
-

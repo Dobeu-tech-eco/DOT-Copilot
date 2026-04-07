@@ -11,8 +11,13 @@ const envSchema = z.object({
   // JWT
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
+  /** Optional; when set, password-reset HMAC uses this instead of JWT_SECRET */
+  PASSWORD_RESET_SECRET: z.string().min(32).optional(),
   JWT_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
+
+  // Metrics (optional; /metrics returns 401 if unset)
+  METRICS_API_KEY: z.string().min(16).optional(),
   
   // CORS
   FRONTEND_URL: z.string().url().default('http://localhost:5173'),
@@ -44,22 +49,6 @@ function validateEnv(): Env {
       const errors = error.issues.map((e: z.ZodIssue) => `  - ${e.path.join('.')}: ${e.message}`);
       console.error('Environment validation failed:');
       console.error(errors.join('\n'));
-      
-      // In development, provide helpful defaults
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('\nUsing development defaults. Create a .env file from .env.example for proper configuration.');
-        return {
-          NODE_ENV: 'development',
-          PORT: 3001,
-          DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/dot_copilot?schema=public',
-          JWT_SECRET: 'development-secret-key-change-in-production-32chars',
-          JWT_REFRESH_SECRET: 'development-refresh-secret-change-in-production-32',
-          JWT_EXPIRES_IN: '15m',
-          JWT_REFRESH_EXPIRES_IN: '7d',
-          FRONTEND_URL: 'http://localhost:5173',
-          AWS_REGION: 'us-east-1',
-        };
-      }
       
       process.exit(1);
     }

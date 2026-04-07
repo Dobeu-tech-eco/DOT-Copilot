@@ -11,6 +11,7 @@ export const registerSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
   name: z.string().min(1, 'Name is required').optional(),
   fleetId: z.string().optional(),
+  role: z.enum(['DRIVER', 'DRIVER_COACH', 'SUPERVISOR', 'BRANCH_MANAGER', 'ADMIN']).optional(),
 });
 
 export const resetPasswordSchema = z.object({
@@ -52,6 +53,12 @@ export const createFleetSchema = z.object({
 });
 
 export const updateFleetSchema = createFleetSchema.partial();
+
+// Agent-native primitive tools (orchestrator calls these; same authz as REST)
+export const agentInvokeSchema = z.object({
+  tool: z.enum(['complete_task', 'list_assignments', 'update_assignment_status']),
+  arguments: z.record(z.string(), z.unknown()).default({}),
+});
 
 // Training Program schemas
 export const createTrainingProgramSchema = z.object({

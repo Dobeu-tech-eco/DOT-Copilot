@@ -1,4 +1,5 @@
 import { Router, Response } from 'express';
+import crypto from 'crypto';
 import multer from 'multer';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import storageService from '../services/storage';
@@ -52,10 +53,18 @@ router.post('/', requireRole('ADMIN', 'SUPERVISOR'), upload.single('file'), asyn
       return res.status(503).json({ error: 'Storage service not configured' });
     }
 
-    const folder = req.body.folder || 'uploads';
+    const ALLOWED_FOLDERS = ['uploads', 'training', 'documents', 'avatars', 'certificates'];
+    const rawFolder = String(req.body.folder || 'uploads');
+    const folder = ALLOWED_FOLDERS.includes(rawFolder) ? rawFolder : 'uploads';
+
+    const ext = req.file.originalname.includes('.')
+      ? '.' + req.file.originalname.split('.').pop()
+      : '';
+    const safeFilename = `${crypto.randomUUID()}${ext}`;
+
     const result = await storage.uploadFile(
       req.file.buffer,
-      req.file.originalname,
+      safeFilename,
       req.file.mimetype,
       folder
     );

@@ -1,3 +1,5 @@
+# Azure deploy for inner monorepo. OIDC: set AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
+# and a federated credential on the app registration; then switch azure/login inputs from creds to client-id/tenant-id/subscription-id.
 name: Deploy to Azure
 
 on:
@@ -21,10 +23,8 @@ on:
 env:
   NODE_VERSION: '20.x'
   AZURE_WEBAPP_NAME_BACKEND: dot-copilot-backend
+  INNER: cursor-projects/DOT-Copilot
 
-# =============================================================================
-# Determine environment based on branch
-# =============================================================================
 jobs:
   set-environment:
     runs-on: ubuntu-latest
@@ -44,13 +44,10 @@ jobs:
             echo "environment=dev" >> $GITHUB_OUTPUT
           fi
 
-  # =============================================================================
-  # Build and Test
-  # =============================================================================
   build-test:
     runs-on: ubuntu-latest
     needs: set-environment
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -61,67 +58,70 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: |
-            backend/package-lock.json
-            frontend/package-lock.json
+            ${{ env.INNER }}/backend/package-lock.json
+            ${{ env.INNER }}/frontend/package-lock.json
 
-      # Backend
       - name: Install backend dependencies
-        working-directory: backend
+        working-directory: ${{ env.INNER }}/backend
         run: npm ci
 
       - name: Generate Prisma client
-        working-directory: backend
+        working-directory: ${{ env.INNER }}/backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npx prisma generate
 
       - name: Run backend tests
-        working-directory: backend
+        working-directory: ${{ env.INNER }}/backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npm test -- --passWithNoTests
 
       - name: Build backend
-        working-directory: backend
+        working-directory: ${{ env.INNER }}/backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npm run build
 
-      # Frontend
       - name: Install frontend dependencies
-        working-directory: frontend
+        working-directory: ${{ env.INNER }}/frontend
         run: npm ci
 
       - name: Run frontend tests
-        working-directory: frontend
+        working-directory: ${{ env.INNER }}/frontend
         run: npm test -- --passWithNoTests
 
       - name: Build frontend
-        working-directory: frontend
-        run: npm run build
+        working-directory: ${{ env.INNER }}/frontend
         env:
           VITE_API_BASE_URL: ${{ secrets.API_BASE_URL }}
+        run: npm run build
 
-      # Upload artifacts
       - name: Upload backend artifact
         uses: actions/upload-artifact@v4
         with:
           name: backend-dist
           path: |
-            backend/dist
-            backend/package.json
-            backend/package-lock.json
-            backend/prisma
+            ${{ env.INNER }}/backend/dist
+            ${{ env.INNER }}/backend/package.json
+            ${{ env.INNER }}/backend/package-lock.json
+            ${{ env.INNER }}/backend/prisma
 
       - name: Upload frontend artifact
         uses: actions/upload-artifact@v4
         with:
           name: frontend-dist
-          path: frontend/dist
+          path: ${{ env.INNER }}/frontend/dist
 
-  # =============================================================================
-  # Deploy Backend to Azure App Service
-  # =============================================================================
   deploy-backend:
     runs-on: ubuntu-latest
     needs: [set-environment, build-test]
     if: github.event_name != 'pull_request' || github.event.action != 'closed'
     environment: ${{ needs.set-environment.outputs.environment }}
-    
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
       - name: Download backend artifact
         uses: actions/download-artifact@v4
@@ -136,10 +136,12 @@ jobs:
 
       - name: Install production dependencies
         working-directory: backend
-        run: npm ci --only=production
+        run: npm ci --omit=dev
 
       - name: Generate Prisma client
         working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npx prisma generate
 
       - name: Azure Login
@@ -169,15 +171,12 @@ jobs:
             --slot staging \
             --target-slot production
 
-  # =============================================================================
-  # Deploy Frontend to Azure Static Web Apps
-  # =============================================================================
   deploy-frontend:
     runs-on: ubuntu-latest
     needs: [set-environment, build-test]
     if: github.event_name != 'pull_request' || github.event.action != 'closed'
     environment: ${{ needs.set-environment.outputs.environment }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -186,7 +185,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
-          path: frontend/dist
+          path: swa-app
 
       - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
@@ -194,17 +193,14 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: 'upload'
-          app_location: '/frontend'
-          output_location: 'dist'
+          app_location: 'swa-app'
+          output_location: ''
           skip_app_build: true
 
-  # =============================================================================
-  # Close Pull Request - Clean up preview environments
-  # =============================================================================
   close-pr:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Close Static Web Apps Preview
         uses: Azure/static-web-apps-deploy@v1
@@ -212,14 +208,11 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           action: 'close'
 
-  # =============================================================================
-  # Health Check
-  # =============================================================================
   health-check:
     runs-on: ubuntu-latest
     needs: [set-environment, deploy-backend, deploy-frontend]
     environment: ${{ needs.set-environment.outputs.environment }}
-    
+
     steps:
       - name: Wait for deployment
         run: sleep 30

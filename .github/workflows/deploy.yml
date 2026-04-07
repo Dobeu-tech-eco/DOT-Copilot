@@ -1,0 +1,52 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  INNER: cursor-projects/DOT-Copilot
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install backend dependencies
+        working-directory: ${{ env.INNER }}/backend
+        run: npm ci
+
+      - name: Generate Prisma client
+        working-directory: ${{ env.INNER }}/backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma generate
+
+      - name: Build backend
+        working-directory: ${{ env.INNER }}/backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run build
+
+      - name: Install frontend dependencies
+        working-directory: ${{ env.INNER }}/frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ${{ env.INNER }}/frontend
+        env:
+          VITE_API_BASE_URL: ${{ secrets.API_BASE_URL }}
+        run: npm run build
+
+      - name: Deployment notification
+        run: echo "Build complete. Configure hosting secrets (Azure, Vercel, etc.) to publish artifacts."

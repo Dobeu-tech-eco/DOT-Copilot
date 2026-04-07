@@ -26,10 +26,10 @@ describe('Validation Schemas', () => {
       expect(result.success).toBe(false);
     });
 
-    it('should reject short password', () => {
+    it('should reject password shorter than 8 characters', () => {
       const result = loginSchema.safeParse({
         email: 'test@example.com',
-        password: '12345',
+        password: '1234567',
       });
 
       expect(result.success).toBe(false);

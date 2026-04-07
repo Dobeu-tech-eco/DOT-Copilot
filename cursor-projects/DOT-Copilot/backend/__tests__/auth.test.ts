@@ -4,7 +4,6 @@ import authRoutes from '../src/routes/auth';
 import { hashPassword } from '../src/utils/password';
 import { generateTokenPair, verifyAccessToken } from '../src/utils/jwt';
 
-// Mock Prisma
 jest.mock('../src/db', () => ({
   __esModule: true,
   default: {
@@ -20,6 +19,15 @@ import prisma from '../src/db';
 const app = express();
 app.use(express.json());
 app.use('/api/auth', authRoutes);
+
+function adminToken(fleetId: string | null = 'fleet-test') {
+  return generateTokenPair({
+    userId: 'admin-1',
+    email: 'admin@test.com',
+    role: 'ADMIN',
+    fleetId,
+  }).accessToken;
+}
 
 describe('Auth Routes', () => {
   beforeEach(() => {
@@ -65,6 +73,7 @@ describe('Auth Routes', () => {
         name: 'Test User',
         passwordHash,
         role: 'DRIVER',
+        fleetId: 'fleet-test',
         fleet: null,
       });
 
@@ -80,14 +89,26 @@ describe('Auth Routes', () => {
   });
 
   describe('POST /api/auth/register', () => {
+    it('should return 401 without auth', async () => {
+      const res = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: 'x@example.com',
+          password: 'password1234',
+        });
+
+      expect(res.status).toBe(401);
+    });
+
     it('should return 400 if email already exists', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({ id: '1' });
 
       const res = await request(app)
         .post('/api/auth/register')
-        .send({ 
-          email: 'existing@example.com', 
-          password: 'password123' 
+        .set('Authorization', `Bearer ${adminToken()}`)
+        .send({
+          email: 'existing@example.com',
+          password: 'password1234',
         });
 
       expect(res.status).toBe(400);
@@ -101,14 +122,16 @@ describe('Auth Routes', () => {
         email: 'new@example.com',
         name: 'New User',
         role: 'DRIVER',
+        fleetId: 'fleet-test',
         fleet: null,
       });
 
       const res = await request(app)
         .post('/api/auth/register')
-        .send({ 
-          email: 'new@example.com', 
-          password: 'password123',
+        .set('Authorization', `Bearer ${adminToken()}`)
+        .send({
+          email: 'new@example.com',
+          password: 'password1234',
           name: 'New User',
         });
 
@@ -133,8 +156,13 @@ describe('Auth Routes', () => {
 });
 
 describe('JWT Utils', () => {
-  it('should generate and verify access token', () => {
-    const payload = { userId: '1', email: 'test@example.com', role: 'DRIVER' };
+  it('should generate and verify access token with fleetId', () => {
+    const payload = {
+      userId: '1',
+      email: 'test@example.com',
+      role: 'DRIVER',
+      fleetId: 'fleet-1',
+    };
     const tokens = generateTokenPair(payload);
 
     expect(tokens.accessToken).toBeDefined();
@@ -143,6 +171,7 @@ describe('JWT Utils', () => {
     const decoded = verifyAccessToken(tokens.accessToken);
     expect(decoded.userId).toBe('1');
     expect(decoded.email).toBe('test@example.com');
+    expect(decoded.fleetId).toBe('fleet-1');
   });
 });
 

@@ -1,13 +1,38 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../db';
 import { hashPassword, verifyPassword } from '../utils/password';
-import { generateTokenPair, verifyRefreshToken, blacklistToken, isTokenBlacklisted, hashToken, JWT_SECRET } from '../utils/jwt';
+import { generateTokenPair, verifyRefreshToken, blacklistToken, isTokenBlacklisted, hashToken } from '../utils/jwt';
 import { validateBody, loginSchema, registerSchema, resetPasswordSchema, refreshTokenSchema } from '../schemas';
-import { authenticate, AuthenticatedRequest } from '../middleware/auth';
+import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { emailService } from '../services/email';
+import { env } from '../config/env';
 import crypto from 'crypto';
+import { Prisma } from '@prisma/client';
 
 const router = Router();
+
+/** Delegate until `npx prisma generate` is run with a schema that includes PasswordResetToken. */
+function passwordResetTokens() {
+  return prisma as unknown as {
+    passwordResetToken: {
+      deleteMany: (args: { where: { userId: string } }) => Promise<Prisma.BatchPayload>;
+      create: (args: {
+        data: { tokenHash: string; userId: string; expiresAt: Date };
+      }) => Promise<{ tokenHash: string }>;
+      findUnique: (args: {
+        where: { tokenHash: string };
+      }) => Promise<{ usedAt: Date | null; expiresAt: Date } | null>;
+      update: (args: {
+        where: { tokenHash: string };
+        data: { usedAt: Date };
+      }) => Promise<unknown>;
+    };
+  };
+}
+
+function resetHmacSecret(): string {
+  return env.PASSWORD_RESET_SECRET ?? env.JWT_SECRET;
+}
 
 router.post('/login', validateBody(loginSchema), async (req: Request, res: Response) => {
   try {
@@ -31,7 +56,7 @@ router.post('/login', validateBody(loginSchema), async (req: Request, res: Respo
       userId: user.id,
       email: user.email,
       role: user.role,
-      fleetId: user.fleetId || undefined,
+      fleetId: user.fleetId ?? null,
     });
 
     res.json({
@@ -54,25 +79,27 @@ router.post('/login', validateBody(loginSchema), async (req: Request, res: Respo
           last_login_at: user.lastLoginAt?.toISOString() || null,
           created_at: user.createdAt.toISOString(),
           updated_at: user.updatedAt.toISOString(),
-          fleet: user.fleet ? {
-            id: user.fleet.id,
-            company_name: user.fleet.companyName,
-            locations: user.fleet.locations,
-            cargo_type: user.fleet.cargoType,
-            cdl_status: user.fleet.cdlStatus,
-            vehicle_types: user.fleet.vehicleTypes,
-            key_risk_areas: user.fleet.keyRiskAreas,
-            operation_type: user.fleet.operationType,
-            states_of_operation: user.fleet.statesOfOperation,
-            onboarding_completed: user.fleet.onboardingCompleted,
-            compliance_profile_configured: user.fleet.complianceProfileConfigured,
-            logo_url: user.fleet.logoUrl,
-            primary_color: user.fleet.primaryColor,
-            secondary_color: user.fleet.secondaryColor,
-            default_language: user.fleet.defaultLanguage,
-            created_at: user.fleet.createdAt.toISOString(),
-            updated_at: user.fleet.updatedAt.toISOString(),
-          } : null,
+          fleet: user.fleet
+            ? {
+                id: user.fleet.id,
+                company_name: user.fleet.companyName,
+                locations: user.fleet.locations,
+                cargo_type: user.fleet.cargoType,
+                cdl_status: user.fleet.cdlStatus,
+                vehicle_types: user.fleet.vehicleTypes,
+                key_risk_areas: user.fleet.keyRiskAreas,
+                operation_type: user.fleet.operationType,
+                states_of_operation: user.fleet.statesOfOperation,
+                onboarding_completed: user.fleet.onboardingCompleted,
+                compliance_profile_configured: user.fleet.complianceProfileConfigured,
+                logo_url: user.fleet.logoUrl,
+                primary_color: user.fleet.primaryColor,
+                secondary_color: user.fleet.secondaryColor,
+                default_language: user.fleet.defaultLanguage,
+                created_at: user.fleet.createdAt.toISOString(),
+                updated_at: user.fleet.updatedAt.toISOString(),
+              }
+            : null,
         },
         ...tokens,
       },
@@ -83,52 +110,79 @@ router.post('/login', validateBody(loginSchema), async (req: Request, res: Respo
   }
 });
 
-router.post('/register', validateBody(registerSchema), async (req: Request, res: Response) => {
-  try {
-    const { email, password, name, fleetId } = req.body;
+router.post(
+  '/register',
+  authenticate,
+  requireRole('ADMIN', 'BRANCH_MANAGER'),
+  validateBody(registerSchema),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { email, password, name, role: requestedRole, fleetId: bodyFleetId } = req.body;
+      const caller = req.user!;
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
-      return res.status(400).json({ error: 'Email already registered' });
-    }
+      if (requestedRole === 'ADMIN' && caller.role !== 'ADMIN') {
+        return res.status(403).json({ error: 'Only admins can assign admin role' });
+      }
 
-    const passwordHash = await hashPassword(password);
+      let fleetId: string | null = bodyFleetId ?? caller.fleetId ?? null;
 
-    const user = await prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-        name,
-        role: 'DRIVER',
-        fleetId,
-      },
-      include: { fleet: true },
-    });
+      if (caller.role !== 'ADMIN') {
+        fleetId = caller.fleetId ?? null;
+        if (!fleetId) {
+          return res.status(400).json({ error: 'Caller must belong to a fleet' });
+        }
+      } else if (caller.fleetId) {
+        fleetId = bodyFleetId ?? caller.fleetId;
+        if (fleetId !== caller.fleetId) {
+          return res.status(403).json({ error: 'Cannot assign users outside your fleet' });
+        }
+      }
 
-    const tokens = generateTokenPair({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      fleetId: user.fleetId || undefined,
-    });
+      const existingUser = await prisma.user.findUnique({ where: { email } });
+      if (existingUser) {
+        return res.status(400).json({ error: 'Email already registered' });
+      }
 
-    res.status(201).json({
-      data: {
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          fleet_id: user.fleetId,
+      const passwordHash = await hashPassword(password);
+      const role = requestedRole || 'DRIVER';
+
+      const user = await prisma.user.create({
+        data: {
+          email,
+          passwordHash,
+          name,
+          role,
+          fleetId,
         },
-        ...tokens,
-      },
-    });
-  } catch (error: any) {
-    console.error('Registration error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+        include: { fleet: true },
+      });
+
+      const tokens = generateTokenPair({
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        fleetId: user.fleetId ?? null,
+      });
+
+      res.status(201).json({
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            fleet_id: user.fleetId,
+            fleet: user.fleet,
+          },
+          ...tokens,
+        },
+      });
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
-});
+);
 
 router.post('/refresh', validateBody(refreshTokenSchema), async (req: Request, res: Response) => {
   try {
@@ -154,6 +208,7 @@ router.post('/refresh', validateBody(refreshTokenSchema), async (req: Request, r
       userId: user.id,
       email: user.email,
       role: user.role,
+      fleetId: user.fleetId ?? null,
     });
 
     res.json({ data: tokens });
@@ -193,44 +248,40 @@ function generateResetToken(userId: string, email: string): string {
     iat: Date.now(),
     exp: Date.now() + 3600000,
   };
-  
+
+  const secret = resetHmacSecret();
   const data = JSON.stringify(payload);
-  const signature = crypto
-    .createHmac('sha256', JWT_SECRET)
-    .update(data)
-    .digest('hex');
-  
+  const signature = crypto.createHmac('sha256', secret).update(data).digest('hex');
+
   const token = Buffer.from(data).toString('base64') + '.' + signature;
   return token;
 }
 
 function verifyResetToken(token: string): { userId: string; email: string; nonce: string } {
+  const secret = resetHmacSecret();
   const [dataB64, signature] = token.split('.');
-  
+
   if (!dataB64 || !signature) {
     throw new Error('Invalid token format');
   }
-  
+
   const data = Buffer.from(dataB64, 'base64').toString('utf-8');
-  const expectedSignature = crypto
-    .createHmac('sha256', JWT_SECRET)
-    .update(data)
-    .digest('hex');
-  
+  const expectedSignature = crypto.createHmac('sha256', secret).update(data).digest('hex');
+
   if (!crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSignature, 'hex'))) {
     throw new Error('Invalid token signature');
   }
-  
+
   const payload = JSON.parse(data);
-  
+
   if (payload.purpose !== 'password-reset') {
     throw new Error('Invalid token purpose');
   }
-  
+
   if (Date.now() > payload.exp) {
     throw new Error('Token has expired');
   }
-  
+
   return { userId: payload.userId, email: payload.email, nonce: payload.nonce };
 }
 
@@ -247,11 +298,11 @@ router.post('/reset-password', validateBody(resetPasswordSchema), async (req: Re
     const resetToken = generateResetToken(user.id, user.email);
     const tokenHash = hashToken(resetToken);
 
-    await prisma.passwordResetToken.deleteMany({
+    await passwordResetTokens().passwordResetToken.deleteMany({
       where: { userId: user.id },
     });
 
-    await prisma.passwordResetToken.create({
+    await passwordResetTokens().passwordResetToken.create({
       data: {
         tokenHash,
         userId: user.id,
@@ -261,9 +312,9 @@ router.post('/reset-password', validateBody(resetPasswordSchema), async (req: Re
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const resetUrl = `${frontendUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
-    
+
     const emailSent = await emailService.sendPasswordReset(email, resetToken, resetUrl);
-    
+
     if (!emailSent) {
       console.error(`Failed to send password reset email to: ${email}`);
     }
@@ -296,7 +347,7 @@ router.post('/reset-password/confirm', async (req: Request, res: Response) => {
 
     const tokenHash = hashToken(token);
 
-    const storedToken = await prisma.passwordResetToken.findUnique({
+    const storedToken = await passwordResetTokens().passwordResetToken.findUnique({
       where: { tokenHash },
     });
 
@@ -312,8 +363,8 @@ router.post('/reset-password/confirm', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Token has expired' });
     }
 
-    const user = await prisma.user.findUnique({ 
-      where: { id: tokenPayload.userId } 
+    const user = await prisma.user.findUnique({
+      where: { id: tokenPayload.userId },
     });
 
     if (!user || user.email !== tokenPayload.email) {
@@ -322,16 +373,14 @@ router.post('/reset-password/confirm', async (req: Request, res: Response) => {
 
     const passwordHash = await hashPassword(newPassword);
 
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: user.id },
-        data: { passwordHash },
-      }),
-      prisma.passwordResetToken.update({
-        where: { tokenHash },
-        data: { usedAt: new Date() },
-      }),
-    ]);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash },
+    });
+    await passwordResetTokens().passwordResetToken.update({
+      where: { tokenHash },
+      data: { usedAt: new Date() },
+    });
 
     res.json({ message: 'Password has been reset successfully' });
   } catch (error: any) {

@@ -64,8 +64,14 @@ export const logDebug = (message: string, meta?: object) => {
   logger.debug(message, meta);
 };
 
-export const logHttp = (method: string, path: string, statusCode: number, duration: number) => {
-  logger.http(`${method} ${path}`, { statusCode, duration: `${duration}ms` });
+export const logHttp = (
+  method: string,
+  path: string,
+  statusCode: number,
+  duration: number,
+  meta?: Record<string, unknown>
+) => {
+  logger.http(`${method} ${path}`, { statusCode, duration: `${duration}ms`, ...meta });
 };
 
 export default logger;

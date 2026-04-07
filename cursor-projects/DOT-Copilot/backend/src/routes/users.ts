@@ -47,13 +47,54 @@ router.get('/me', async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+/** Require JWT fleetId for all user-directory operations (multi-tenant isolation). */
+function requireFleetContext(req: AuthenticatedRequest, res: Response): string | null {
+  const fleetId = req.user?.fleetId ?? null;
+  if (!fleetId) {
+    res.status(403).json({ error: 'Fleet context required for user management' });
+    return null;
+  }
+  return fleetId;
+}
+
+function resolveCreateFleetId(
+  req: AuthenticatedRequest,
+  bodyFleetId: string | undefined
+): { fleetId: string } | { error: string; status: number } {
+  const caller = req.user!;
+  if (caller.role !== 'ADMIN') {
+    const fid = caller.fleetId;
+    if (!fid) {
+      return { error: 'Caller must belong to a fleet', status: 400 };
+    }
+    return { fleetId: fid };
+  }
+  if (caller.fleetId) {
+    const fid = bodyFleetId ?? caller.fleetId;
+    if (fid !== caller.fleetId) {
+      return { error: 'Cannot assign users outside your fleet', status: 403 };
+    }
+    return { fleetId: fid };
+  }
+  if (!bodyFleetId) {
+    return { error: 'fleetId is required', status: 400 };
+  }
+  return { fleetId: bodyFleetId };
+}
+
 router.get('/', validateQuery(paginationSchema), async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const fleetId = requireFleetContext(req, res);
+    if (!fleetId) return;
+
     const { page, limit } = req.query as any;
     const skip = (page - 1) * limit;
 
+    const where = { fleetId };
+
     const [users, total] = await Promise.all([
       prisma.user.findMany({
+        where,
         skip,
         take: limit,
         select: {
@@ -69,7 +110,7 @@ router.get('/', validateQuery(paginationSchema), async (req: AuthenticatedReques
         },
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.user.count(),
+      prisma.user.count({ where }),
     ]);
 
     res.json({
@@ -89,8 +130,11 @@ router.get('/', validateQuery(paginationSchema), async (req: AuthenticatedReques
 
 router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.params.id },
+    const fleetId = requireFleetContext(req, res);
+    if (!fleetId) return;
+
+    const user = await prisma.user.findFirst({
+      where: { id: req.params.id, fleetId },
       select: {
         id: true,
         email: true,
@@ -115,7 +159,17 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
 router.post('/', requireRole('ADMIN', 'SUPERVISOR'), validateBody(createUserSchema), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { email, password, name, role, fleetId } = req.body;
+    const { email, password, name, role: requestedRole, fleetId: bodyFleetId } = req.body;
+    const caller = req.user!;
+
+    if (requestedRole === 'ADMIN' && caller.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Only admins can assign admin role' });
+    }
+
+    const resolved = resolveCreateFleetId(req, bodyFleetId);
+    if ('error' in resolved) {
+      return res.status(resolved.status).json({ error: resolved.error });
+    }
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -129,8 +183,8 @@ router.post('/', requireRole('ADMIN', 'SUPERVISOR'), validateBody(createUserSche
         email,
         passwordHash,
         name,
-        role: role || 'DRIVER',
-        fleetId,
+        role: requestedRole || 'DRIVER',
+        fleetId: resolved.fleetId,
       },
       select: {
         id: true,
@@ -152,38 +206,38 @@ router.post('/', requireRole('ADMIN', 'SUPERVISOR'), validateBody(createUserSche
 router.put('/:id', validateBody(updateUserSchema), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const fleetId = requireFleetContext(req, res);
+    if (!fleetId) return;
+
     const isPrivileged = ['ADMIN', 'SUPERVISOR'].includes(req.user?.role || '');
     const isSelfUpdate = req.user?.userId === id;
 
-    // Users can only update themselves unless they're admin/supervisor
     if (!isSelfUpdate && !isPrivileged) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const existingUser = await prisma.user.findUnique({ where: { id } });
+    const existingUser = await prisma.user.findFirst({ where: { id, fleetId } });
     if (!existingUser) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // SECURITY: Filter update data based on user's role
-    // Non-privileged users (DRIVER) can only update safe fields, not role or fleetId
-    let updateData: Record<string, any> = {};
-    
+    let updateData: Record<string, unknown> = {};
+
     if (isPrivileged) {
-      // Admins/Supervisors can update all allowed fields
-      updateData = req.body;
-      
-      // Additional check: only ADMIN can change roles to ADMIN
+      updateData = { ...req.body };
+
       if (req.body.role === 'ADMIN' && req.user?.role !== 'ADMIN') {
         return res.status(403).json({ error: 'Only admins can assign admin role' });
       }
+
+      if (req.body.fleetId !== undefined && req.body.fleetId !== fleetId) {
+        return res.status(403).json({ error: 'Cannot move users to another fleet' });
+      }
     } else {
-      // Drivers can only update their own name and email
       const { name, email } = req.body;
       if (name !== undefined) updateData.name = name;
       if (email !== undefined) updateData.email = email;
-      
-      // Log attempt to modify restricted fields
+
       if (req.body.role || req.body.fleetId !== undefined) {
         console.warn(`Security: User ${req.user?.userId} attempted to modify restricted fields`);
       }
@@ -212,8 +266,10 @@ router.put('/:id', validateBody(updateUserSchema), async (req: AuthenticatedRequ
 router.delete('/:id', requireRole('ADMIN'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const fleetId = requireFleetContext(req, res);
+    if (!fleetId) return;
 
-    const existingUser = await prisma.user.findUnique({ where: { id } });
+    const existingUser = await prisma.user.findFirst({ where: { id, fleetId } });
     if (!existingUser) {
       return res.status(404).json({ error: 'User not found' });
     }

@@ -1,16 +1,9 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { env } from '../config/env';
 
-function requireSecret(name: string): string {
-  const value = process.env[name];
-  if (!value && process.env.NODE_ENV === 'production') {
-    throw new Error(`FATAL: ${name} environment variable is required in production. Generate one with: openssl rand -base64 32`);
-  }
-  return value || `dev-only-fallback-${name}`;
-}
-
-export const JWT_SECRET = requireSecret('JWT_SECRET');
-const JWT_REFRESH_SECRET = requireSecret('JWT_REFRESH_SECRET');
+export const JWT_SECRET = env.JWT_SECRET;
+const JWT_REFRESH_SECRET = env.JWT_REFRESH_SECRET;
 
 const tokenBlacklist = new Set<string>();
 const BLACKLIST_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
@@ -44,25 +37,37 @@ export interface TokenPayload {
   userId: string;
   email: string;
   role: string;
-  fleetId?: string;
+  /** Fleet tenancy; null if user not assigned to a fleet */
+  fleetId: string | null;
 }
 
 export function generateAccessToken(payload: TokenPayload): string {
-  const expiresIn = process.env.JWT_EXPIRES_IN || '15m';
+  const expiresIn = env.JWT_EXPIRES_IN;
   return jwt.sign(payload, JWT_SECRET, { expiresIn: expiresIn as jwt.SignOptions['expiresIn'] });
 }
 
 export function generateRefreshToken(payload: TokenPayload): string {
-  const expiresIn = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
+  const expiresIn = env.JWT_REFRESH_EXPIRES_IN;
   return jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: expiresIn as jwt.SignOptions['expiresIn'] });
 }
 
+function normalizePayload(decoded: jwt.JwtPayload): TokenPayload {
+  return {
+    userId: decoded.userId as string,
+    email: decoded.email as string,
+    role: decoded.role as string,
+    fleetId: (decoded as { fleetId?: string | null }).fleetId ?? null,
+  };
+}
+
 export function verifyAccessToken(token: string): TokenPayload {
-  return jwt.verify(token, JWT_SECRET) as TokenPayload;
+  const decoded = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload;
+  return normalizePayload(decoded);
 }
 
 export function verifyRefreshToken(token: string): TokenPayload {
-  return jwt.verify(token, JWT_REFRESH_SECRET) as TokenPayload;
+  const decoded = jwt.verify(token, JWT_REFRESH_SECRET) as jwt.JwtPayload;
+  return normalizePayload(decoded);
 }
 
 export function generateTokenPair(payload: TokenPayload) {
