@@ -75,7 +75,7 @@ const corsOptions = {
     if (!origin || allowedOrigins.some((o) => origin.startsWith(o))) {
       callback(null, true);
     } else {
-      callback(null, true);
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
     }
   },
   credentials: true,
@@ -107,11 +107,8 @@ app.get('/health/ready', async (req: Request, res: Response) => {
 
   try {
     const dbStart = Date.now();
-    const prismaModule = await import('@prisma/client');
-    const PrismaClientClass = prismaModule.PrismaClient;
-    const prisma = new PrismaClientClass();
+    // Use the singleton prisma instance
     await prisma.$queryRaw`SELECT 1`;
-    await prisma.$disconnect();
 
     checks.database = {
       status: 'healthy',
@@ -151,11 +148,8 @@ app.get('/health/detailed', async (req: Request, res: Response) => {
 
   try {
     const dbStart = Date.now();
-    const prismaModule = await import('@prisma/client');
-    const PrismaClientClass = prismaModule.PrismaClient;
-    const prisma = new PrismaClientClass();
+    // Use the singleton prisma instance
     await prisma.$queryRaw`SELECT 1`;
-    await prisma.$disconnect();
 
     checks.database = {
       status: 'healthy',
@@ -234,9 +228,37 @@ app.use((req: Request, res: Response) => {
 app.use(errorLogger);
 app.use(errorHandler);
 
+const server = app.listen(PORT, () => {
+  logInfo(`Server started`, { port: PORT, env: process.env.NODE_ENV || 'development' });
+  console.log(`Server is running on http://localhost:${PORT}`);
+});
+
 const shutdown = async (signal: string) => {
   logInfo(`Received ${signal}, shutting down gracefully...`);
-  process.exit(0);
+  
+  server.close(async () => {
+    logInfo('HTTP server closed.');
+    
+    try {
+      await prisma.$disconnect();
+      logInfo('Prisma connection closed.');
+      
+      const Sentry = require('@sentry/node');
+      await Sentry.flush(2000);
+      logInfo('Sentry logs flushed.');
+      
+      process.exit(0);
+    } catch (err) {
+      logError('Error during graceful shutdown', err as Error);
+      process.exit(1);
+    }
+  });
+
+  // Force shutdown after 10 seconds
+  setTimeout(() => {
+    logError('Graceful shutdown timed out, forcing exit.');
+    process.exit(1);
+  }, 10000);
 };
 
 process.on('SIGINT', () => shutdown('SIGINT'));
@@ -249,11 +271,6 @@ process.on('uncaughtException', (error) => {
 
 process.on('unhandledRejection', (reason) => {
   logError('Unhandled Rejection', reason as Error);
-});
-
-app.listen(PORT, () => {
-  logInfo(`Server started`, { port: PORT, env: process.env.NODE_ENV || 'development' });
-  console.log(`Server is running on http://localhost:${PORT}`);
 });
 
 export default app;

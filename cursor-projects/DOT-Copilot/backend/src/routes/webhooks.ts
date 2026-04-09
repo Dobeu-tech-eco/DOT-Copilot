@@ -41,7 +41,9 @@ const WEBHOOK_EVENT_TYPES = [
 
 const webhookSchema = z.object({
   name: z.string().min(1).max(255),
-  url: z.string().url(),
+  url: z.string().url().refine(isValidWebhookUrl, {
+    message: 'Invalid webhook URL. Private IP ranges and internal hostnames are not allowed.',
+  }),
   events: z.array(z.enum(WEBHOOK_EVENT_TYPES)).min(1),
   secret: z.string().optional(),
   headers: z.record(z.string()).optional(),
@@ -355,6 +357,11 @@ router.post('/:id/test', async (req: AuthenticatedRequest, res: Response) => {
 
     if (!webhook) {
       return res.status(404).json({ error: 'Webhook not found' });
+    }
+
+    // Double check URL before testing (in case it was updated bypass or before validation was added)
+    if (!isValidWebhookUrl(webhook.url)) {
+      return res.status(400).json({ error: 'Cannot test webhook with invalid or private URL.' });
     }
 
     // Send test event

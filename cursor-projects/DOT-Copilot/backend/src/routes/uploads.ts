@@ -96,7 +96,8 @@ router.post('/', requireRole('ADMIN', 'SUPERVISOR'), upload.single('file'), asyn
 // Get signed download URL
 router.get('/download/:key(*)', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { key } = req.params;
+    const rawKey = req.params.key;
+    const key = sanitizeStorageKey(rawKey);
     
     // Use Azure Storage if configured, otherwise fall back to S3
     const useAzure = azureStorageService.isReady();
@@ -127,7 +128,8 @@ router.get('/download/:key(*)', async (req: AuthenticatedRequest, res: Response)
 // Delete file
 router.delete('/:key(*)', requireRole('ADMIN'), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { key } = req.params;
+    const rawKey = req.params.key;
+    const key = sanitizeStorageKey(rawKey);
     
     // Use Azure Storage if configured, otherwise fall back to S3
     const storage = azureStorageService.isReady() ? azureStorageService : storageService;
