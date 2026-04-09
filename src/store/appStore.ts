@@ -13,20 +13,6 @@ import type {
   DriverStats,
   ComplianceRequirement,
 } from '../types/database'
-import {
-  isDemoMode,
-  demoFleet,
-  demoProfiles,
-  demoVehicles,
-  demoComplianceRequirements,
-  demoComplianceRecords,
-  demoDocuments,
-  demoTrainingPrograms,
-  demoAssignments,
-  demoNotifications,
-  demoCompletionRecords,
-  demoDriverStats,
-} from './demoData'
 
 interface DashboardStats {
   totalDrivers: number
@@ -66,27 +52,27 @@ interface AppState {
   fetchComplianceRequirements: (fleetId: string) => Promise<void>
   markNotificationRead: (id: string) => Promise<void>
 
-  addProfile: (profile: Omit<Profile, 'id' | 'created_at' | 'updated_at'>) => void
-  updateProfile: (id: string, updates: Partial<Profile>) => void
-  deleteProfile: (id: string) => void
+  addProfile: (profile: Omit<Profile, 'id' | 'created_at' | 'updated_at'>) => Promise<void>
+  updateProfile: (id: string, updates: Partial<Profile>) => Promise<void>
+  deleteProfile: (id: string) => Promise<void>
 
-  addVehicle: (vehicle: Omit<Vehicle, 'id' | 'created_at'>) => void
-  updateVehicle: (id: string, updates: Partial<Vehicle>) => void
-  deleteVehicle: (id: string) => void
+  addVehicle: (vehicle: Omit<Vehicle, 'id' | 'created_at'>) => Promise<void>
+  updateVehicle: (id: string, updates: Partial<Vehicle>) => Promise<void>
+  deleteVehicle: (id: string) => Promise<void>
 
-  updateFleet: (updates: Partial<Fleet>) => void
+  updateFleet: (updates: Partial<Fleet>) => Promise<void>
 
-  addComplianceRecord: (record: Omit<DriverCompliance, 'id' | 'created_at'>) => void
-  updateComplianceRecord: (id: string, updates: Partial<DriverCompliance>) => void
+  addComplianceRecord: (record: Omit<DriverCompliance, 'id' | 'created_at'>) => Promise<void>
+  updateComplianceRecord: (id: string, updates: Partial<DriverCompliance>) => Promise<void>
 
-  addDocument: (doc: Omit<DriverDocument, 'id' | 'created_at'>) => void
-  updateDocument: (id: string, updates: Partial<DriverDocument>) => void
+  addDocument: (doc: Omit<DriverDocument, 'id' | 'created_at'>) => Promise<void>
+  updateDocument: (id: string, updates: Partial<DriverDocument>) => Promise<void>
 
-  addTrainingProgram: (program: Omit<TrainingProgram, 'id' | 'created_at' | 'updated_at'>) => void
-  updateTrainingProgram: (id: string, updates: Partial<TrainingProgram>) => void
+  addTrainingProgram: (program: Omit<TrainingProgram, 'id' | 'created_at' | 'updated_at'>) => Promise<void>
+  updateTrainingProgram: (id: string, updates: Partial<TrainingProgram>) => Promise<void>
 
-  addAssignment: (assignment: Omit<Assignment, 'id' | 'created_at'>) => void
-  updateAssignment: (id: string, updates: Partial<Assignment>) => void
+  addAssignment: (assignment: Omit<Assignment, 'id' | 'created_at'>) => Promise<void>
+  updateAssignment: (id: string, updates: Partial<Assignment>) => Promise<void>
 }
 
 function snakeToCamelProfile(u: any): Profile {
@@ -112,11 +98,6 @@ function snakeToCamelProfile(u: any): Profile {
   }
 }
 
-let idCounter = 1000
-function genId(prefix: string) {
-  return `${prefix}-${Date.now()}-${idCounter++}`
-}
-
 export const useAppStore = create<AppState>((set, get) => ({
   fleet: null,
   profiles: [],
@@ -134,10 +115,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   fetchFleet: async (fleetId: string) => {
     set(s => ({ loading: { ...s.loading, fleet: true } }))
-    if (isDemoMode()) {
-      set(s => ({ fleet: demoFleet, loading: { ...s.loading, fleet: false } }))
-      return
-    }
     try {
       const res = await api.get<{ data: any }>(`/fleets/${fleetId}`)
       const f = res.data
@@ -169,10 +146,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   fetchProfiles: async (fleetId: string) => {
     set(s => ({ loading: { ...s.loading, profiles: true } }))
-    if (isDemoMode()) {
-      set(s => ({ profiles: [...demoProfiles], loading: { ...s.loading, profiles: false } }))
-      return
-    }
     try {
       const res = await api.get<{ data: any[] }>(`/users?page=1&limit=500`)
       const profiles = (res.data || []).map(snakeToCamelProfile)
@@ -185,10 +158,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   fetchTrainingPrograms: async (fleetId: string) => {
     set(s => ({ loading: { ...s.loading, trainingPrograms: true } }))
-    if (isDemoMode()) {
-      set(s => ({ trainingPrograms: [...demoTrainingPrograms], loading: { ...s.loading, trainingPrograms: false } }))
-      return
-    }
     try {
       const res = await api.get<{ data: any[] }>(`/training-programs?page=1&limit=500`)
       const programs = (res.data || []).map((p: any) => ({
@@ -213,10 +182,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   fetchAssignments: async (fleetId: string) => {
     set(s => ({ loading: { ...s.loading, assignments: true } }))
-    if (isDemoMode()) {
-      set(s => ({ assignments: [...demoAssignments], loading: { ...s.loading, assignments: false } }))
-      return
-    }
     try {
       const res = await api.get<{ data: any[] }>(`/assignments?page=1&limit=500`)
       const assignments = (res.data || []).map((a: any) => ({
@@ -246,10 +211,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   fetchComplianceRecords: async (fleetId: string) => {
     set(s => ({ loading: { ...s.loading, compliance: true } }))
-    if (isDemoMode()) {
-      set(s => ({ complianceRecords: [...demoComplianceRecords], loading: { ...s.loading, compliance: false } }))
-      return
-    }
     try {
       const res = await api.get<{ data: any[] }>(`/compliance/drivers`)
       set(s => ({ complianceRecords: res.data || [], loading: { ...s.loading, compliance: false } }))
@@ -261,10 +222,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   fetchDocuments: async (fleetId: string) => {
     set(s => ({ loading: { ...s.loading, documents: true } }))
-    if (isDemoMode()) {
-      set(s => ({ documents: [...demoDocuments], loading: { ...s.loading, documents: false } }))
-      return
-    }
     try {
       const res = await api.get<{ data: any[] }>(`/documents`)
       const docs = (res.data || []).map((d: any) => ({
@@ -289,19 +246,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   fetchVehicles: async (fleetId: string) => {
     set(s => ({ loading: { ...s.loading, vehicles: true } }))
-    if (isDemoMode()) {
-      set(s => ({ vehicles: [...demoVehicles], loading: { ...s.loading, vehicles: false } }))
-      return
-    }
+    // API endpoint not yet implemented
     set(s => ({ vehicles: [], loading: { ...s.loading, vehicles: false } }))
   },
 
   fetchNotifications: async (userId: string) => {
     set(s => ({ loading: { ...s.loading, notifications: true } }))
-    if (isDemoMode()) {
-      set(s => ({ notifications: [...demoNotifications], loading: { ...s.loading, notifications: false } }))
-      return
-    }
     try {
       const res = await api.get<{ data: any[] }>(`/notifications?page=1&limit=50`)
       const notifs = (res.data || []).map((n: any) => ({
@@ -321,10 +271,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   fetchComplianceRequirements: async (fleetId: string) => {
-    if (isDemoMode()) {
-      set({ complianceRequirements: [...demoComplianceRequirements] })
-      return
-    }
     try {
       const res = await api.get<{ data: any[] }>(`/compliance/requirements`)
       const reqs = (res.data || []).map((r: any) => ({
@@ -349,41 +295,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     set(s => ({ loading: { ...s.loading, dashboard: true } }))
     const store = get()
 
-    if (isDemoMode()) {
-      if (store.completionRecords.length === 0) {
-        set({ completionRecords: [...demoCompletionRecords], driverStats: [...demoDriverStats] })
-      }
-      const drivers = store.profiles.filter(p => p.role === 'DRIVER')
-      const activeDrivers = drivers.filter(p => p.is_active)
-      const overdueAssignments = store.assignments.filter(a => a.status === 'overdue')
-      const now = new Date()
-      const thirtyDays = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-      const expiringDocs = store.documents.filter(d => {
-        const exp = new Date(d.expiration_date)
-        return exp > now && exp <= thirtyDays
-      })
-      const expiredDocs = store.documents.filter(d => new Date(d.expiration_date) <= now)
-      const issueCount = store.complianceRecords.filter(c => c.status === 'EXPIRED' || c.status === 'EXPIRING_SOON').length
-      const complianceRate = drivers.length > 0
-        ? Math.round(((drivers.length - (issueCount > 0 ? expiredDocs.length : 0)) / Math.max(drivers.length, 1)) * 100)
-        : 100
-
-      set(s => ({
-        dashboardStats: {
-          totalDrivers: drivers.length,
-          activeDrivers: activeDrivers.length,
-          totalVehicles: store.vehicles.filter(v => v.is_active).length,
-          complianceRate: Math.min(complianceRate, 100),
-          overdueAssignments: overdueAssignments.length,
-          completedTrainings: store.completionRecords.length,
-          expiringDocuments: expiringDocs.length + expiredDocs.length,
-          upcomingExpirations: expiringDocs.slice(0, 5),
-        },
-        loading: { ...s.loading, dashboard: false },
-      }))
-      return
-    }
-
     const drivers = store.profiles.filter(p => p.role === 'DRIVER')
     const activeDrivers = drivers.filter(p => p.is_active)
     const overdueAssignments = store.assignments.filter(a => a.status === 'overdue')
@@ -400,7 +311,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         totalDrivers: drivers.length,
         activeDrivers: activeDrivers.length,
         totalVehicles: store.vehicles.length,
-        complianceRate: drivers.length > 0 ? 100 : 100,
+        complianceRate: drivers.length > 0 ? 100 : 100, // TODO: calculate based on data
         overdueAssignments: overdueAssignments.length,
         completedTrainings: store.completionRecords.length,
         expiringDocuments: expiringDocs.length + expiredDocs.length,
@@ -411,196 +322,159 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   markNotificationRead: async (id: string) => {
-    if (!isDemoMode()) {
-      try {
-        await api.put(`/notifications/${id}`, { isRead: true })
-      } catch (e) {
-        console.error('markNotificationRead error:', e)
-      }
+    try {
+      await api.put(`/notifications/${id}`, { isRead: true })
+      set(s => ({
+        notifications: s.notifications.map(n => n.id === id ? { ...n, is_read: true } : n),
+      }))
+    } catch (e) {
+      console.error('markNotificationRead error:', e)
     }
-    set(s => ({
-      notifications: s.notifications.map(n => n.id === id ? { ...n, is_read: true } : n),
-    }))
   },
 
-  addProfile: (profile) => {
-    if (!isDemoMode()) {
-      api.post('/users', {
+  addProfile: async (profile) => {
+    try {
+      const res = await api.post('/users', {
         email: profile.email,
         password: 'TempPass123!',
         name: profile.name,
         role: profile.role,
         fleetId: profile.fleet_id,
-      }).then(res => {
-        const u = res.data
-        const newProfile = snakeToCamelProfile(u)
-        set(s => ({ profiles: s.profiles.map(p => p.email === profile.email ? newProfile : p) }))
-      }).catch(e => console.error('addProfile API error:', e))
+      })
+      const u = res.data
+      const newProfile = snakeToCamelProfile(u)
+      set(s => ({ profiles: [...s.profiles, newProfile] }))
+    } catch (e) {
+      console.error('addProfile error:', e)
     }
-    const newProfile: Profile = {
-      ...profile,
-      id: genId('user'),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-    set(s => ({ profiles: [...s.profiles, newProfile] }))
   },
 
-  updateProfile: (id, updates) => {
-    if (!isDemoMode()) {
-      api.put(`/users/${id}`, updates).catch(e => console.error('updateProfile API error:', e))
+  updateProfile: async (id, updates) => {
+    try {
+      await api.put(`/users/${id}`, updates)
+      set(s => ({
+        profiles: s.profiles.map(p => p.id === id ? { ...p, ...updates, updated_at: new Date().toISOString() } : p),
+      }))
+    } catch (e) {
+      console.error('updateProfile error:', e)
     }
+  },
+
+  deleteProfile: async (id) => {
+    try {
+      await api.delete(`/users/${id}`)
+      set(s => ({ profiles: s.profiles.filter(p => p.id !== id) }))
+    } catch (e) {
+      console.error('deleteProfile error:', e)
+    }
+  },
+
+  addVehicle: async (vehicle) => {
+    // API not yet implemented
+    console.warn('addVehicle API not yet implemented')
+  },
+
+  updateVehicle: async (id, updates) => {
+    // API not yet implemented
     set(s => ({
-      profiles: s.profiles.map(p => p.id === id ? { ...p, ...updates, updated_at: new Date().toISOString() } : p),
+      vehicles: s.vehicles.map(v => v.id === id ? { ...v, ...updates } : v),
     }))
   },
 
-  deleteProfile: (id) => {
-    if (!isDemoMode()) {
-      api.delete(`/users/${id}`).catch(e => console.error('deleteProfile API error:', e))
-    }
-    set(s => ({ profiles: s.profiles.filter(p => p.id !== id) }))
-  },
-
-  addVehicle: (vehicle) => {
-    const store = get()
-    const assignedDriver = vehicle.assigned_driver_id
-      ? store.profiles.find(p => p.id === vehicle.assigned_driver_id)
-      : undefined
-    const newVehicle: Vehicle = {
-      ...vehicle,
-      id: genId('veh'),
-      created_at: new Date().toISOString(),
-      profiles: assignedDriver,
-    }
-    set(s => ({ vehicles: [...s.vehicles, newVehicle] }))
-  },
-
-  updateVehicle: (id, updates) => {
-    const store = get()
-    set(s => ({
-      vehicles: s.vehicles.map(v => {
-        if (v.id !== id) return v
-        const updated = { ...v, ...updates }
-        if (updates.assigned_driver_id !== undefined) {
-          updated.profiles = updates.assigned_driver_id
-            ? store.profiles.find(p => p.id === updates.assigned_driver_id)
-            : undefined
-        }
-        return updated
-      }),
-    }))
-  },
-
-  deleteVehicle: (id) => {
+  deleteVehicle: async (id) => {
+    // API not yet implemented
     set(s => ({ vehicles: s.vehicles.filter(v => v.id !== id) }))
   },
 
-  updateFleet: (updates) => {
-    if (!isDemoMode()) {
-      const store = get()
-      if (store.fleet) {
-        api.put(`/fleets/${store.fleet.id}`, updates).catch(e => console.error('updateFleet API error:', e))
+  updateFleet: async (updates) => {
+    const store = get()
+    if (store.fleet) {
+      try {
+        await api.put(`/fleets/${store.fleet.id}`, updates)
+        set(s => ({
+          fleet: s.fleet ? { ...s.fleet, ...updates, updated_at: new Date().toISOString() } : null,
+        }))
+      } catch (e) {
+        console.error('updateFleet error:', e)
       }
     }
-    set(s => ({
-      fleet: s.fleet ? { ...s.fleet, ...updates, updated_at: new Date().toISOString() } : null,
-    }))
   },
 
-  addComplianceRecord: (record) => {
-    const store = get()
-    const newRecord: DriverCompliance = {
-      ...record,
-      id: genId('comp'),
-      created_at: new Date().toISOString(),
-      profiles: store.profiles.find(p => p.id === record.user_id),
-      compliance_requirements: store.complianceRequirements.find(r => r.id === record.requirement_id),
-    }
-    set(s => ({ complianceRecords: [...s.complianceRecords, newRecord] }))
+  addComplianceRecord: async (record) => {
+    // API not yet implemented
+    console.warn('addComplianceRecord API not yet implemented')
   },
 
-  updateComplianceRecord: (id, updates) => {
+  updateComplianceRecord: async (id, updates) => {
     set(s => ({
       complianceRecords: s.complianceRecords.map(r => r.id === id ? { ...r, ...updates } : r),
     }))
   },
 
-  addDocument: (doc) => {
-    const store = get()
-    if (!isDemoMode()) {
-      api.post('/documents', {
+  addDocument: async (doc) => {
+    try {
+      await api.post('/documents', {
         documentType: doc.document_type,
         documentNumber: doc.document_number,
         expirationDate: new Date(doc.expiration_date).toISOString(),
         issuedDate: doc.issued_date ? new Date(doc.issued_date).toISOString() : undefined,
         issuingState: doc.issuing_state,
         userId: doc.user_id,
-      }).catch(e => console.error('addDocument API error:', e))
+      })
+      // Refetch documents to get fresh data with IDs
+      const store = get()
+      if (store.fleet) await store.fetchDocuments(store.fleet.id)
+    } catch (e) {
+      console.error('addDocument error:', e)
     }
-    const newDoc: DriverDocument = {
-      ...doc,
-      id: genId('doc'),
-      created_at: new Date().toISOString(),
-      profiles: store.profiles.find(p => p.id === doc.user_id),
-    }
-    set(s => ({ documents: [...s.documents, newDoc] }))
   },
 
-  updateDocument: (id, updates) => {
+  updateDocument: async (id, updates) => {
     set(s => ({
       documents: s.documents.map(d => d.id === id ? { ...d, ...updates } : d),
     }))
   },
 
-  addTrainingProgram: (program) => {
-    if (!isDemoMode()) {
-      api.post('/training-programs', {
+  addTrainingProgram: async (program) => {
+    try {
+      await api.post('/training-programs', {
         programName: program.program_name,
         description: program.description,
         isRecommended: program.is_recommended,
         fleetId: program.fleet_id,
-      }).catch(e => console.error('addTrainingProgram API error:', e))
+      })
+      // Refetch
+      const store = get()
+      if (store.fleet) await store.fetchTrainingPrograms(store.fleet.id)
+    } catch (e) {
+      console.error('addTrainingProgram error:', e)
     }
-    const newProgram: TrainingProgram = {
-      ...program,
-      id: genId('tp'),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-    set(s => ({ trainingPrograms: [...s.trainingPrograms, newProgram] }))
   },
 
-  updateTrainingProgram: (id, updates) => {
+  updateTrainingProgram: async (id, updates) => {
     set(s => ({
       trainingPrograms: s.trainingPrograms.map(p => p.id === id ? { ...p, ...updates, updated_at: new Date().toISOString() } : p),
     }))
   },
 
-  addAssignment: (assignment) => {
-    const store = get()
-    if (!isDemoMode()) {
-      api.post('/assignments', {
+  addAssignment: async (assignment) => {
+    try {
+      await api.post('/assignments', {
         userId: assignment.user_id,
         fleetId: assignment.fleet_id,
         trainingProgramId: assignment.training_program_id,
         dueDate: assignment.due_date,
         priority: assignment.priority,
-      }).catch(e => console.error('addAssignment API error:', e))
+      })
+      // Refetch
+      const store = get()
+      if (store.fleet) await store.fetchAssignments(store.fleet.id)
+    } catch (e) {
+      console.error('addAssignment error:', e)
     }
-    const newAssignment: Assignment = {
-      ...assignment,
-      id: genId('asgn'),
-      created_at: new Date().toISOString(),
-      profiles: store.profiles.find(p => p.id === assignment.user_id),
-      training_programs: assignment.training_program_id
-        ? store.trainingPrograms.find(t => t.id === assignment.training_program_id)
-        : undefined,
-    }
-    set(s => ({ assignments: [...s.assignments, newAssignment] }))
   },
 
-  updateAssignment: (id, updates) => {
+  updateAssignment: async (id, updates) => {
     set(s => ({
       assignments: s.assignments.map(a => a.id === id ? { ...a, ...updates } : a),
     }))
