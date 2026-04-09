@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { Truck, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { z } from 'zod'
+
+const loginSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(1, 'Password is required'),
+})
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -9,6 +15,7 @@ export function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [validationError, setValidationError] = useState<string | null>(null)
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -19,6 +26,17 @@ export function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     clearError()
+    setValidationError(null)
+
+    try {
+      loginSchema.parse({ email, password })
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        setValidationError(err.issues[0].message)
+        return
+      }
+    }
+
     try {
       await login(email, password)
     } catch {
@@ -65,10 +83,10 @@ export function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
+            {(error || validationError) && (
               <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm animate-fade-in">
                 <AlertCircle size={16} className="shrink-0" />
-                {error}
+                {validationError || error}
               </div>
             )}
 

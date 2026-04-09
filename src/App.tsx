@@ -11,6 +11,7 @@ import { VehiclesPage } from './pages/VehiclesPage'
 import { UsersPage } from './pages/UsersPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { NotFoundPage } from './pages/NotFoundPage'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 import type { UserRole } from './types/database'
 
@@ -42,22 +43,24 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<LoginPage />} />
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<LoginPage />} />
 
-        <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/compliance" element={<CompliancePage />} />
-          <Route path="/training" element={<TrainingPage />} />
-          <Route path="/vehicles" element={<RoleRoute roles={['ADMIN', 'BRANCH_MANAGER', 'SUPERVISOR']}><VehiclesPage /></RoleRoute>} />
-          <Route path="/users" element={<RoleRoute roles={['ADMIN', 'BRANCH_MANAGER']}><UsersPage /></RoleRoute>} />
-          <Route path="/settings" element={<RoleRoute roles={['ADMIN']}><SettingsPage /></RoleRoute>} />
-          <Route path="/notifications" element={<DashboardPage />} />
-        </Route>
+          <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/compliance" element={<CompliancePage />} />
+            <Route path="/training" element={<TrainingPage />} />
+            <Route path="/vehicles" element={<RoleRoute roles={['ADMIN', 'BRANCH_MANAGER', 'SUPERVISOR']}><VehiclesPage /></RoleRoute>} />
+            <Route path="/users" element={<RoleRoute roles={['ADMIN', 'BRANCH_MANAGER']}><UsersPage /></RoleRoute>} />
+            <Route path="/settings" element={<RoleRoute roles={['ADMIN']}><SettingsPage /></RoleRoute>} />
+            <Route path="/notifications" element={<DashboardPage />} />
+          </Route>
 
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </BrowserRouter>
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }
