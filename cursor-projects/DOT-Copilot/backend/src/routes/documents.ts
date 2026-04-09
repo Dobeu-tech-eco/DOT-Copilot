@@ -353,7 +353,7 @@ router.get('/expiring/list', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'
 
     const documents = await prisma.driverDocument.findMany({
       where: {
-        fleetId: user.fleetId,
+        fleetId: user.fleetId ?? undefined,
         expirationDate: {
           gte: now,
           lte: futureDate,
@@ -413,7 +413,7 @@ router.get('/expired/list', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER')
 
     const documents = await prisma.driverDocument.findMany({
       where: {
-        fleetId: user.fleetId,
+        fleetId: user.fleetId ?? undefined,
         expirationDate: {
           lt: now,
         },

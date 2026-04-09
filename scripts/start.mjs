@@ -7,7 +7,7 @@ const root = resolve(__dirname, '..');
 const backendDir = resolve(root, 'cursor-projects/DOT-Copilot/backend');
 
 console.log('Starting backend server...');
-const backend = spawn('npx', ['ts-node', 'src/server.ts'], {
+const backend = spawn('npx', ['ts-node', '--transpile-only', 'src/server.ts'], {
   cwd: backendDir,
   stdio: 'inherit',
   env: { ...process.env },

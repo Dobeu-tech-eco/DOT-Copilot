@@ -1,6 +1,7 @@
 modules = ["nodejs-20", "bash", "web"]
 [agent]
 expertMode = true
+integrations = ["javascript_database:1.0.0"]
 
 [nix]
 channel = "stable-25_05"
@@ -45,3 +46,13 @@ externalPort = 3000
 deploymentTarget = "static"
 build = ["npm", "run", "build"]
 publicDir = "dist"
+
+[userenv]
+
+[userenv.shared]
+NODE_ENV = "development"
+PORT = "3001"
+FRONTEND_URL = "https://localhost:5000"
+JWT_EXPIRES_IN = "15m"
+JWT_REFRESH_EXPIRES_IN = "7d"
+ENABLE_DOCS = "true"

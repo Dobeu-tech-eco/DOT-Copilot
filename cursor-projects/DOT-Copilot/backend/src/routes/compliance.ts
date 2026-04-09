@@ -53,7 +53,7 @@ router.get('/requirements', async (req: AuthenticatedRequest, res: Response) => 
     const where: any = {
       OR: [
         { fleetId: null }, // System-wide templates
-        { fleetId: user.fleetId }, // Fleet-specific
+        { fleetId: user.fleetId ?? undefined }, // Fleet-specific
       ],
     };
 
@@ -102,7 +102,7 @@ router.post('/requirements', requireRole('ADMIN', 'SUPERVISOR'), async (req: Aut
     const requirement = await prisma.complianceRequirement.create({
       data: {
         ...validated,
-        fleetId: user.fleetId,
+        fleetId: user.fleetId ?? undefined,
       },
     });
 
@@ -195,7 +195,7 @@ router.get('/drivers', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), asy
     const user = req.user!;
 
     const userWhere: any = {
-      fleetId: user.fleetId,
+      fleetId: user.fleetId ?? undefined,
       role: 'DRIVER',
       isActive: true,
     };
@@ -429,7 +429,7 @@ router.get('/dashboard', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), a
     // Get total drivers
     const totalDrivers = await prisma.user.count({
       where: {
-        fleetId: user.fleetId,
+        fleetId: user.fleetId ?? undefined,
         role: 'DRIVER',
         isActive: true,
       },
@@ -438,7 +438,7 @@ router.get('/dashboard', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), a
     // Get expiring documents
     const expiringDocuments = await prisma.driverDocument.findMany({
       where: {
-        fleetId: user.fleetId,
+        fleetId: user.fleetId ?? undefined,
         expirationDate: {
           gte: now,
           lte: thirtyDaysFromNow,
@@ -455,7 +455,7 @@ router.get('/dashboard', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), a
     // Get expired documents
     const expiredDocuments = await prisma.driverDocument.findMany({
       where: {
-        fleetId: user.fleetId,
+        fleetId: user.fleetId ?? undefined,
         expirationDate: {
           lt: now,
         },
@@ -471,7 +471,7 @@ router.get('/dashboard', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), a
     // Get overdue training assignments
     const overdueAssignments = await prisma.assignment.findMany({
       where: {
-        fleetId: user.fleetId,
+        fleetId: user.fleetId ?? undefined,
         status: { not: 'completed' },
         dueDate: {
           lt: now,
@@ -491,7 +491,7 @@ router.get('/dashboard', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), a
     // Get upcoming due assignments
     const upcomingDue = await prisma.assignment.findMany({
       where: {
-        fleetId: user.fleetId,
+        fleetId: user.fleetId ?? undefined,
         status: { not: 'completed' },
         dueDate: {
           gte: now,
@@ -561,7 +561,7 @@ router.get('/expiring', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), as
 
     const expiringDocuments = await prisma.driverDocument.findMany({
       where: {
-        fleetId: user.fleetId,
+        fleetId: user.fleetId ?? undefined,
         expirationDate: {
           gte: now,
           lte: futureDate,
@@ -577,7 +577,7 @@ router.get('/expiring', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), as
 
     const expiringCompliance = await prisma.driverCompliance.findMany({
       where: {
-        user: { fleetId: user.fleetId },
+        user: { fleetId: user.fleetId ?? undefined },
         expirationDate: {
           gte: now,
           lte: futureDate,

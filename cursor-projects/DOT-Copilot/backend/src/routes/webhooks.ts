@@ -109,7 +109,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
 
     const webhooks = await prisma.webhook.findMany({
       where: {
-        fleetId: user.fleetId,
+        fleetId: user.fleetId ?? undefined,
       },
       include: {
         creator: {
@@ -150,7 +150,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     const webhook = await prisma.webhook.findFirst({
       where: {
         id,
-        fleetId: user.fleetId,
+        fleetId: user.fleetId ?? undefined,
       },
       include: {
         creator: {
@@ -240,7 +240,7 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
     const webhook = await prisma.webhook.updateMany({
       where: {
         id,
-        fleetId: user.fleetId,
+        fleetId: user.fleetId ?? undefined,
       },
       data: validated,
     });
@@ -283,7 +283,7 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
     const result = await prisma.webhook.deleteMany({
       where: {
         id,
-        fleetId: user.fleetId,
+        fleetId: user.fleetId ?? undefined,
       },
     });
 
@@ -315,7 +315,7 @@ router.post('/:id/regenerate-secret', async (req: AuthenticatedRequest, res: Res
     const result = await prisma.webhook.updateMany({
       where: {
         id,
-        fleetId: user.fleetId,
+        fleetId: user.fleetId ?? undefined,
       },
       data: {
         secret: newSecret,
@@ -351,7 +351,7 @@ router.post('/:id/test', async (req: AuthenticatedRequest, res: Response) => {
     const webhook = await prisma.webhook.findFirst({
       where: {
         id,
-        fleetId: user.fleetId,
+        fleetId: user.fleetId ?? undefined,
       },
     });
 
@@ -447,7 +447,7 @@ router.get('/:id/deliveries', async (req: AuthenticatedRequest, res: Response) =
     const webhook = await prisma.webhook.findFirst({
       where: {
         id,
-        fleetId: user.fleetId,
+        fleetId: user.fleetId ?? undefined,
       },
     });
 
@@ -497,7 +497,7 @@ router.post('/:id/toggle', async (req: AuthenticatedRequest, res: Response) => {
     const webhook = await prisma.webhook.findFirst({
       where: {
         id,
-        fleetId: user.fleetId,
+        fleetId: user.fleetId ?? undefined,
       },
     });
 

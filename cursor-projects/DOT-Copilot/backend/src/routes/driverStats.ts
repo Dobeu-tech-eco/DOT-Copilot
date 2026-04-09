@@ -88,7 +88,7 @@ router.get('/rankings', async (req: AuthenticatedRequest, res: Response) => {
     const locationId = req.query.locationId as string;
 
     const userWhere: any = {
-      fleetId: user.fleetId,
+      fleetId: user.fleetId ?? undefined,
       role: 'DRIVER',
       isActive: true,
     };
@@ -241,7 +241,7 @@ router.get('/fleet/summary', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'
     ] = await Promise.all([
       prisma.user.count({
         where: {
-          fleetId: user.fleetId,
+          fleetId: user.fleetId ?? undefined,
           role: 'DRIVER',
           isActive: true,
         },
@@ -251,7 +251,7 @@ router.get('/fleet/summary', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'
       }),
       prisma.completionRecord.aggregate({
         where: {
-          fleetId: user.fleetId,
+          fleetId: user.fleetId ?? undefined,
           quizScore: { not: null },
         },
         _avg: { quizScore: true },
@@ -283,7 +283,7 @@ router.get('/fleet/summary', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'
       }),
       prisma.assignment.count({
         where: {
-          fleetId: user.fleetId,
+          fleetId: user.fleetId ?? undefined,
           status: 'completed',
         },
       }),
