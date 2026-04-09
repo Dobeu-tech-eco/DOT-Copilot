@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sendError } from '../utils/response';
 
 // Auth schemas
 export const loginSchema = z.object({
@@ -162,13 +163,16 @@ export function validateBody<T>(schema: z.ZodSchema<T>) {
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          error: 'Validation failed',
-          details: error.issues.map((e: z.ZodIssue) => ({
+        return sendError(
+          res,
+          'Validation failed',
+          'VALIDATION_ERROR',
+          400,
+          error.issues.map((e: z.ZodIssue) => ({
             field: e.path.join('.'),
             message: e.message,
-          })),
-        });
+          }))
+        );
       }
       next(error);
     }
@@ -182,16 +186,18 @@ export function validateQuery<T>(schema: z.ZodSchema<T>) {
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          error: 'Validation failed',
-          details: error.issues.map((e: z.ZodIssue) => ({
+        return sendError(
+          res,
+          'Validation failed',
+          'VALIDATION_ERROR',
+          400,
+          error.issues.map((e: z.ZodIssue) => ({
             field: e.path.join('.'),
             message: e.message,
-          })),
-        });
+          }))
+        );
       }
       next(error);
     }
   };
 }
-

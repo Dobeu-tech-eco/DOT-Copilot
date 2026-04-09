@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
 import { logError } from '../services/logger';
 import { captureException } from '../services/sentry';
+import { sendError } from '../utils/response';
 
 export class AppError extends Error {
   constructor(
@@ -36,50 +37,37 @@ export const errorHandler = (
 
   // Handle known error types
   if (err instanceof AppError) {
-    return res.status(err.statusCode).json({
-      error: err.message,
-      code: err.code,
-      details: err.details,
-    });
+    return sendError(res, err.message, err.code, err.statusCode, err.details);
   }
 
   if (err instanceof ZodError) {
-    return res.status(400).json({
-      error: 'Validation failed',
-      details: err.issues.map((issue) => ({
+    return sendError(
+      res,
+      'Validation failed',
+      'VALIDATION_ERROR',
+      400,
+      err.issues.map((issue) => ({
         field: issue.path.join('.'),
         message: issue.message,
-      })),
-    });
+      }))
+    );
   }
 
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     // Handle Prisma errors
     if (err.code === 'P2002') {
-      return res.status(409).json({
-        error: 'A record with this value already exists',
-        code: 'DUPLICATE_ENTRY',
-      });
+      return sendError(res, 'A record with this value already exists', 'DUPLICATE_ENTRY', 409);
     }
 
     if (err.code === 'P2025') {
-      return res.status(404).json({
-        error: 'Record not found',
-        code: 'NOT_FOUND',
-      });
+      return sendError(res, 'Record not found', 'NOT_FOUND', 404);
     }
 
-    return res.status(400).json({
-      error: 'Database error',
-      code: 'DATABASE_ERROR',
-    });
+    return sendError(res, 'Database error', 'DATABASE_ERROR', 400);
   }
 
   if (err instanceof Prisma.PrismaClientValidationError) {
-    return res.status(400).json({
-      error: 'Invalid data provided',
-      code: 'VALIDATION_ERROR',
-    });
+    return sendError(res, 'Invalid data provided', 'VALIDATION_ERROR', 400);
   }
 
   // Default error response
@@ -88,11 +76,13 @@ export const errorHandler = (
     ? 'Internal server error'
     : err.message;
 
-  res.status(statusCode).json({
-    error: message,
-    code: 'INTERNAL_ERROR',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
-  });
+  return sendError(
+    res,
+    message,
+    'INTERNAL_ERROR',
+    statusCode,
+    process.env.NODE_ENV === 'development' ? { stack: err.stack } : undefined
+  );
 };
 
 // Async error wrapper

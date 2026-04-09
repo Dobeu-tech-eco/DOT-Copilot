@@ -1,3 +1,4 @@
+import { logError } from '../services/logger';
 import { z } from 'zod';
 
 const envSchema = z.object({
@@ -47,8 +48,8 @@ function validateEnv(): Env {
   } catch (error) {
     if (error instanceof z.ZodError) {
       const errors = error.issues.map((e: z.ZodIssue) => `  - ${e.path.join('.')}: ${e.message}`);
-      console.error('Environment validation failed:');
-      console.error(errors.join('\n'));
+      logError('Environment validation failed:');
+      logError(errors.join('\n'));
       
       process.exit(1);
     }
