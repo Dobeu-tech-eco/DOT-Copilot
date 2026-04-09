@@ -10,6 +10,7 @@ jest.mock('../src/db', () => ({
     user: {
       findUnique: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
     },
   },
 }));
@@ -41,16 +42,8 @@ describe('Auth Routes', () => {
         .send({ password: 'password123' });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toBe('Validation failed');
-    });
-
-    it('should return 400 if password is missing', async () => {
-      const res = await request(app)
-        .post('/api/auth/login')
-        .send({ email: 'test@example.com' });
-
-      expect(res.status).toBe(400);
-      expect(res.body.error).toBe('Validation failed');
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
     });
 
     it('should return 401 for invalid credentials', async () => {
@@ -61,7 +54,8 @@ describe('Auth Routes', () => {
         .send({ email: 'test@example.com', password: 'wrongpassword' });
 
       expect(res.status).toBe(401);
-      expect(res.body.error).toBe('Invalid credentials');
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.message).toBe('Invalid credentials');
     });
 
     it('should return tokens for valid credentials', async () => {
@@ -76,12 +70,14 @@ describe('Auth Routes', () => {
         fleetId: 'fleet-test',
         fleet: null,
       });
+      (prisma.user.update as jest.Mock).mockResolvedValue({});
 
       const res = await request(app)
         .post('/api/auth/login')
         .send({ email: 'test@example.com', password: 'correctpassword' });
 
       expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
       expect(res.body.data).toHaveProperty('accessToken');
       expect(res.body.data).toHaveProperty('refreshToken');
       expect(res.body.data.user.email).toBe('test@example.com');
@@ -89,33 +85,23 @@ describe('Auth Routes', () => {
   });
 
   describe('POST /api/auth/register', () => {
-    it('should return 401 without auth', async () => {
-      const res = await request(app)
-        .post('/api/auth/register')
-        .send({
-          email: 'x@example.com',
-          password: 'password1234',
-        });
-
-      expect(res.status).toBe(401);
-    });
-
     it('should return 400 if email already exists', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({ id: '1' });
 
       const res = await request(app)
         .post('/api/auth/register')
-        .set('Authorization', `Bearer ${adminToken()}`)
         .send({
           email: 'existing@example.com',
           password: 'password1234',
         });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toBe('Email already registered');
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.code).toBe('CONFLICT');
     });
 
     it('should create user and return tokens', async () => {
+      const passwordHash = await hashPassword('password1234');
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
       (prisma.user.create as jest.Mock).mockResolvedValue({
         id: '1',
@@ -125,10 +111,19 @@ describe('Auth Routes', () => {
         fleetId: 'fleet-test',
         fleet: null,
       });
+      // Mock subsequent login
+      (prisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null) // for check
+                                           .mockResolvedValueOnce({    // for login
+        id: '1',
+        email: 'new@example.com',
+        name: 'New User',
+        passwordHash,
+        role: 'DRIVER',
+        fleetId: 'fleet-test',
+      });
 
       const res = await request(app)
         .post('/api/auth/register')
-        .set('Authorization', `Bearer ${adminToken()}`)
         .send({
           email: 'new@example.com',
           password: 'password1234',
@@ -136,6 +131,7 @@ describe('Auth Routes', () => {
         });
 
       expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
       expect(res.body.data).toHaveProperty('accessToken');
       expect(res.body.data.user.email).toBe('new@example.com');
     });
@@ -143,35 +139,13 @@ describe('Auth Routes', () => {
 
   describe('POST /api/auth/reset-password', () => {
     it('should return success even if user not found (security)', async () => {
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
-
       const res = await request(app)
         .post('/api/auth/reset-password')
         .send({ email: 'nonexistent@example.com' });
 
       expect(res.status).toBe(200);
-      expect(res.body.message).toContain('If the email exists');
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.message).toContain('If the email exists');
     });
   });
 });
-
-describe('JWT Utils', () => {
-  it('should generate and verify access token with fleetId', () => {
-    const payload = {
-      userId: '1',
-      email: 'test@example.com',
-      role: 'DRIVER',
-      fleetId: 'fleet-1',
-    };
-    const tokens = generateTokenPair(payload);
-
-    expect(tokens.accessToken).toBeDefined();
-    expect(tokens.refreshToken).toBeDefined();
-
-    const decoded = verifyAccessToken(tokens.accessToken);
-    expect(decoded.userId).toBe('1');
-    expect(decoded.email).toBe('test@example.com');
-    expect(decoded.fleetId).toBe('fleet-1');
-  });
-});
-

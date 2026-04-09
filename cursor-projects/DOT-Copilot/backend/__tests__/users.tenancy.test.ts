@@ -44,7 +44,8 @@ describe('Users API fleet isolation', () => {
       .set('Authorization', `Bearer ${tokenForFleet(null)}`);
 
     expect(res.status).toBe(403);
-    expect(res.body.error).toMatch(/Fleet context required/);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.message).toMatch(/Fleet context required/);
     expect(prisma.user.findMany).not.toHaveBeenCalled();
   });
 
@@ -66,16 +67,19 @@ describe('Users API fleet isolation', () => {
   });
 
   it('GET /:id returns 404 for user in another fleet', async () => {
-    (prisma.user.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+      id: 'user-other-fleet',
+      fleetId: 'fleet-b',
+    });
 
     const res = await request(app)
       .get('/api/users/user-other-fleet')
       .set('Authorization', `Bearer ${tokenForFleet('fleet-a')}`);
 
     expect(res.status).toBe(404);
-    expect(prisma.user.findFirst).toHaveBeenCalledWith(
+    expect(prisma.user.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'user-other-fleet', fleetId: 'fleet-a' },
+        where: { id: 'user-other-fleet' },
       })
     );
   });
