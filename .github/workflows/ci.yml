@@ -10,8 +10,8 @@ env:
   INNER: cursor-projects/DOT-Copilot
 
 jobs:
-  root-web-lint-build:
-    name: Root Vite app (Supabase)
+  frontend-ci:
+    name: Canonical Frontend (Root)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,10 +32,9 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_SUPABASE_URL: https://example.supabase.co
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY_CI || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDI2OTIyMDAsImV4cCI6MTk1ODI2ODIwMH0.placeholder' }}
+          VITE_API_URL: http://localhost:3001/api
 
-  backend-lint-test:
+  backend-ci:
     name: Backend Lint & Test
     runs-on: ubuntu-latest
 
@@ -82,8 +81,6 @@ jobs:
 
       - name: Run linting
         working-directory: ${{ env.INNER }}/backend
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/dot_copilot_test?schema=public
         run: npm run lint
 
       - name: Run tests
@@ -100,42 +97,10 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/dot_copilot_test?schema=public
         run: npm run build
 
-  frontend-lint-test:
-    name: Inner frontend Lint & Test
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: ${{ env.INNER }}/frontend/package-lock.json
-
-      - name: Install dependencies
-        working-directory: ${{ env.INNER }}/frontend
-        run: npm ci
-
-      - name: Run linting
-        working-directory: ${{ env.INNER }}/frontend
-        run: npm run lint
-
-      - name: Run tests
-        working-directory: ${{ env.INNER }}/frontend
-        run: npm test
-
-      - name: Build
-        working-directory: ${{ env.INNER }}/frontend
-        env:
-          VITE_API_BASE_URL: http://localhost:3001
-        run: npm run build
-
   docker-build:
-    name: Docker Build
+    name: Docker Build & Scan
     runs-on: ubuntu-latest
-    needs: [root-web-lint-build, backend-lint-test, frontend-lint-test]
+    needs: [frontend-ci, backend-ci]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
@@ -150,16 +115,6 @@ jobs:
           context: ./${{ env.INNER }}/backend
           push: false
           tags: dot-copilot-backend:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          load: true
-
-      - name: Build frontend image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./${{ env.INNER }}/frontend
-          push: false
-          tags: dot-copilot-frontend:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           load: true
@@ -179,19 +134,3 @@ jobs:
         with:
           sarif_file: 'trivy-backend-results.sarif'
           category: 'backend-container'
-
-      - name: Run Trivy vulnerability scanner - Frontend
-        uses: aquasecurity/trivy-action@0.35.0
-        with:
-          image-ref: 'dot-copilot-frontend:${{ github.sha }}'
-          format: 'sarif'
-          output: 'trivy-frontend-results.sarif'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '1'
-
-      - name: Upload Trivy results - Frontend
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: 'trivy-frontend-results.sarif'
-          category: 'frontend-container'
