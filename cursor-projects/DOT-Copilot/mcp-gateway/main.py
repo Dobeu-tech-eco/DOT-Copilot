@@ -157,7 +157,13 @@ MCP_SERVERS = {
         "url": "http://github_mcp:8000",
         "enabled": bool(os.getenv("GITHUB_TOKEN"))
     },
-    # Add other MCP servers here
+    "composio": {
+        "url": os.getenv("COMPOSIO_SERVER_URL", "https://connect.composio.dev/mcp"),
+        "enabled": bool(os.getenv("COMPOSIO_API_KEY")),
+        "headers": {
+            "x-consumer-api-key": os.getenv("COMPOSIO_API_KEY", "")
+        }
+    }
 }
 
 
@@ -194,6 +200,8 @@ async def execute_mcp_tool(request: Dict[str, Any]):
         # Simple heuristic: check tool name prefix
         if tool_name.startswith("github_"):
             server_name = "github"
+        elif any(tool_name.startswith(p) for p in ["GMAIL_", "SLACK_", "GOOGLESHEETS_", "LINEAR_", "DOCUSIGN_"]):
+            server_name = "composio"
         else:
             raise HTTPException(
                 status_code=400, 
@@ -213,39 +221,39 @@ async def execute_mcp_tool(request: Dict[str, Any]):
             detail=f"MCP server '{server_name}' is not enabled"
         )
 
-    # Cache key for rate limiting
-    cache_key = f"mcp:execute:{server_name}:{tool_name}"
-    
-    # Check cache
-    if redis_client:
-        cached = redis_client.get(cache_key)
-        if cached:
-            return json.loads(cached)
-
     # Execute tool using MCP protocol
     try:
         server_url = server_config["url"]
+        headers = server_config.get("headers", {})
         
-        # Call the MCP tool using JSON-RPC protocol
-        mcp_result = await call_mcp_tool(
-            server_url=server_url,
-            tool_name=tool_name,
-            arguments=arguments
-        )
+        # Use custom request for Composio or other external servers
+        async with httpx.AsyncClient() as client:
+            rpc_request = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": tool_name,
+                    "arguments": arguments
+                }
+            }
+            
+            response = await client.post(
+                f"{server_url}",
+                json=rpc_request,
+                headers={**headers, "Content-Type": "application/json"},
+                timeout=60.0
+            )
+            response.raise_for_status()
+            mcp_result = response.json().get("result", {})
         
-        result = {
+        return {
             "success": True,
             "server": server_name,
             "tool": tool_name,
             "result": mcp_result,
             "arguments": arguments
         }
-
-        # Cache result (5 minutes) - only cache successful results
-        if redis_client:
-            redis_client.setex(cache_key, 300, json.dumps(result))
-
-        return result
 
     except HTTPException:
         # Re-raise HTTP exceptions from MCP communication
