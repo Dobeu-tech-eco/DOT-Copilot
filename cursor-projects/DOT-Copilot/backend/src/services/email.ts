@@ -1,3 +1,4 @@
+import { logError } from './logger';
 import nodemailer from 'nodemailer';
 
 interface EmailOptions {
@@ -55,7 +56,7 @@ class EmailService {
       });
       return true;
     } catch (error) {
-      console.error('Failed to send email:', error);
+      logError('Failed to send email', error);
       return false;
     }
   }

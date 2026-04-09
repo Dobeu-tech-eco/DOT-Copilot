@@ -2,6 +2,7 @@ import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } fro
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
+import { logError } from './logger';
 
 class StorageService {
   private client: S3Client | null = null;
@@ -38,7 +39,7 @@ class StorageService {
     folder: string = 'uploads'
   ): Promise<{ url: string; key: string } | null> {
     if (!this.isConfigured || !this.client || !this.bucket) {
-      console.error('Storage service not configured');
+      logError('Storage service not configured');
       return null;
     }
 
@@ -57,7 +58,7 @@ class StorageService {
       
       return { url, key };
     } catch (error) {
-      console.error('Failed to upload file:', error);
+      logError('Failed to upload file', error);
       return null;
     }
   }
@@ -75,7 +76,7 @@ class StorageService {
 
       return await getSignedUrl(this.client, command, { expiresIn });
     } catch (error) {
-      console.error('Failed to get signed URL:', error);
+      logError('Failed to get signed URL', error);
       return null;
     }
   }
@@ -92,7 +93,7 @@ class StorageService {
       }));
       return true;
     } catch (error) {
-      console.error('Failed to delete file:', error);
+      logError('Failed to delete file', error);
       return false;
     }
   }

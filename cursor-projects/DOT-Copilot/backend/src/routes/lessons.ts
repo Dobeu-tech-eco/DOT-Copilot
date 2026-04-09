@@ -1,3 +1,4 @@
+import { logError } from '../services/logger';
 import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
@@ -46,7 +47,7 @@ router.get('/', validateQuery(querySchema), async (req: AuthenticatedRequest, re
       },
     });
   } catch (error: any) {
-    console.error('Get lessons error:', error);
+    logError('Get lessons error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -70,7 +71,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
     res.json({ data: lesson });
   } catch (error: any) {
-    console.error('Get lesson error:', error);
+    logError('Get lesson error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -86,7 +87,7 @@ router.post('/', requireRole('ADMIN', 'SUPERVISOR'), validateBody(createLessonSc
 
     res.status(201).json({ data: lesson });
   } catch (error: any) {
-    console.error('Create lesson error:', error);
+    logError('Create lesson error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -110,7 +111,7 @@ router.put('/:id', requireRole('ADMIN', 'SUPERVISOR'), validateBody(updateLesson
 
     res.json({ data: lesson });
   } catch (error: any) {
-    console.error('Update lesson error:', error);
+    logError('Update lesson error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -128,7 +129,7 @@ router.delete('/:id', requireRole('ADMIN'), async (req: AuthenticatedRequest, re
 
     res.json({ message: 'Lesson deleted successfully' });
   } catch (error: any) {
-    console.error('Delete lesson error:', error);
+    logError('Delete lesson error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

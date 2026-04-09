@@ -1,3 +1,4 @@
+import { logError } from '../services/logger';
 import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
@@ -47,7 +48,7 @@ router.get('/', validateQuery(querySchema), async (req: AuthenticatedRequest, re
       },
     });
   } catch (error: any) {
-    console.error('Get modules error:', error);
+    logError('Get modules error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -71,7 +72,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
     res.json({ data: module });
   } catch (error: any) {
-    console.error('Get module error:', error);
+    logError('Get module error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -88,7 +89,7 @@ router.post('/', requireRole('ADMIN', 'SUPERVISOR'), validateBody(createModuleSc
 
     res.status(201).json({ data: module });
   } catch (error: any) {
-    console.error('Create module error:', error);
+    logError('Create module error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -113,7 +114,7 @@ router.put('/:id', requireRole('ADMIN', 'SUPERVISOR'), validateBody(updateModule
 
     res.json({ data: module });
   } catch (error: any) {
-    console.error('Update module error:', error);
+    logError('Update module error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -131,7 +132,7 @@ router.delete('/:id', requireRole('ADMIN'), async (req: AuthenticatedRequest, re
 
     res.json({ message: 'Module deleted successfully' });
   } catch (error: any) {
-    console.error('Delete module error:', error);
+    logError('Delete module error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

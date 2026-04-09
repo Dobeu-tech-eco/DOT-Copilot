@@ -1,3 +1,4 @@
+import { logError } from '../services/logger';
 import { Router, Response } from 'express';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import pushNotificationService from '../services/pushNotification';
@@ -63,7 +64,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation error', details: error.errors });
     }
-    console.error('Register device error:', error);
+    logError('Register device error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -83,7 +84,7 @@ router.delete('/:token', async (req: AuthenticatedRequest, res: Response) => {
 
     res.json({ message: 'Device unregistered successfully' });
   } catch (error: any) {
-    console.error('Unregister device error:', error);
+    logError('Unregister device error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -113,7 +114,7 @@ router.post('/test', async (req: AuthenticatedRequest, res: Response) => {
       })),
     });
   } catch (error: any) {
-    console.error('Test notification error:', error);
+    logError('Test notification error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

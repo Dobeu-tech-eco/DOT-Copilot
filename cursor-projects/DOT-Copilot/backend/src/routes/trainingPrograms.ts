@@ -1,3 +1,4 @@
+import { logError } from '../services/logger';
 import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
@@ -43,7 +44,7 @@ router.get('/', validateQuery(querySchema), async (req: AuthenticatedRequest, re
       },
     });
   } catch (error: any) {
-    console.error('Get training programs error:', error);
+    logError('Get training programs error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -69,7 +70,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
     res.json({ data: program });
   } catch (error: any) {
-    console.error('Get training program error:', error);
+    logError('Get training program error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -83,7 +84,7 @@ router.post('/', requireRole('ADMIN', 'SUPERVISOR'), validateBody(createTraining
 
     res.status(201).json({ data: program });
   } catch (error: any) {
-    console.error('Create training program error:', error);
+    logError('Create training program error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -105,7 +106,7 @@ router.put('/:id', requireRole('ADMIN', 'SUPERVISOR'), validateBody(updateTraini
 
     res.json({ data: program });
   } catch (error: any) {
-    console.error('Update training program error:', error);
+    logError('Update training program error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -123,7 +124,7 @@ router.delete('/:id', requireRole('ADMIN'), async (req: AuthenticatedRequest, re
 
     res.json({ message: 'Training program deleted successfully' });
   } catch (error: any) {
-    console.error('Delete training program error:', error);
+    logError('Delete training program error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -8,6 +8,7 @@
  * - Webhooks
  */
 
+import { logError } from './logger';
 import prisma from '../db';
 import emailService from './email';
 import smsService from './sms';
@@ -188,7 +189,7 @@ class NotificationDispatcher {
 
       return result;
     } catch (error: any) {
-      console.error('Notification dispatch error:', error);
+      logError('Notification dispatch error', error);
       return result;
     }
   }

@@ -1,3 +1,4 @@
+import { logError } from '../services/logger';
 import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
@@ -115,7 +116,7 @@ router.post('/invoke', validateBody(agentInvokeSchema), async (req: Authenticate
         return res.status(400).json({ error: 'Unknown tool' });
     }
   } catch (error: any) {
-    console.error('Agent invoke error:', error);
+    logError('Agent invoke error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -1,3 +1,4 @@
+import { logError } from '../services/logger';
 import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
@@ -101,7 +102,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
 
     res.json({ data: documents });
   } catch (error: any) {
-    console.error('Get documents error:', error);
+    logError('Get documents error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -142,7 +143,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
     res.json({ data: document });
   } catch (error: any) {
-    console.error('Get document error:', error);
+    logError('Get document error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -198,7 +199,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation error', details: error.issues });
     }
-    console.error('Create document error:', error);
+    logError('Create document error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -265,7 +266,7 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Document not found' });
     }
-    console.error('Update document error:', error);
+    logError('Update document error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -290,7 +291,7 @@ router.delete('/:id', requireRole('ADMIN', 'SUPERVISOR'), async (req: Authentica
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Document not found' });
     }
-    console.error('Delete document error:', error);
+    logError('Delete document error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -325,7 +326,7 @@ router.post('/:id/verify', requireRole('ADMIN', 'SUPERVISOR'), async (req: Authe
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Document not found' });
     }
-    console.error('Verify document error:', error);
+    logError('Verify document error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -393,7 +394,7 @@ router.get('/expiring/list', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'
       },
     });
   } catch (error: any) {
-    console.error('Get expiring documents error:', error);
+    logError('Get expiring documents error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -442,7 +443,7 @@ router.get('/expired/list', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER')
       },
     });
   } catch (error: any) {
-    console.error('Get expired documents error:', error);
+    logError('Get expired documents error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -485,7 +486,7 @@ router.get('/user/:userId', async (req: AuthenticatedRequest, res: Response) => 
 
     res.json({ data: documents, summary });
   } catch (error: any) {
-    console.error('Get user documents error:', error);
+    logError('Get user documents error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -1,3 +1,4 @@
+import { logError } from '../services/logger';
 import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
@@ -123,7 +124,7 @@ router.get('/sessions', async (req: AuthenticatedRequest, res: Response) => {
 
     res.json({ data: sessions });
   } catch (error: any) {
-    console.error('Get BTW sessions error:', error);
+    logError('Get BTW sessions error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -163,7 +164,7 @@ router.get('/sessions/:id', async (req: AuthenticatedRequest, res: Response) => 
 
     res.json({ data: session });
   } catch (error: any) {
-    console.error('Get BTW session error:', error);
+    logError('Get BTW session error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -223,7 +224,7 @@ router.post('/sessions', requireRole('ADMIN', 'SUPERVISOR', 'DRIVER_COACH'), asy
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation error', details: error.errors });
     }
-    console.error('Create BTW session error:', error);
+    logError('Create BTW session error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -283,7 +284,7 @@ router.put('/sessions/:id', requireRole('ADMIN', 'SUPERVISOR', 'DRIVER_COACH'), 
 
     res.json({ data: session });
   } catch (error: any) {
-    console.error('Update BTW session error:', error);
+    logError('Update BTW session error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -328,7 +329,7 @@ router.post('/sessions/:id/sign/trainer', async (req: AuthenticatedRequest, res:
 
     res.json({ data: updated });
   } catch (error: any) {
-    console.error('Trainer sign error:', error);
+    logError('Trainer sign error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -383,7 +384,7 @@ router.post('/sessions/:id/sign/trainee', async (req: AuthenticatedRequest, res:
 
     res.json({ data: updated });
   } catch (error: any) {
-    console.error('Trainee sign error:', error);
+    logError('Trainee sign error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -425,7 +426,7 @@ router.post('/sessions/:id/complete', requireRole('ADMIN', 'SUPERVISOR', 'DRIVER
 
     res.json({ data: updated, message: 'Session completed successfully' });
   } catch (error: any) {
-    console.error('Complete session error:', error);
+    logError('Complete session error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -504,7 +505,7 @@ router.get('/trainee/:traineeId/summary', async (req: AuthenticatedRequest, res:
       },
     });
   } catch (error: any) {
-    console.error('Get trainee summary error:', error);
+    logError('Get trainee summary error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -529,7 +530,7 @@ router.delete('/sessions/:id', requireRole('ADMIN'), async (req: AuthenticatedRe
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Session not found' });
     }
-    console.error('Delete session error:', error);
+    logError('Delete session error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

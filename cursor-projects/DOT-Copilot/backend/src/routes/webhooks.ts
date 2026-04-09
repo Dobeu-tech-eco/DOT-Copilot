@@ -1,9 +1,11 @@
+import { logError } from '../services/logger';
 import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { z } from 'zod';
 import crypto from 'crypto';
 import eventDispatcher from '../services/eventDispatcher';
+import { isValidWebhookUrl } from '../utils/security';
 
 const router = Router();
 
@@ -126,7 +128,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
 
     res.json({ data: sanitizedWebhooks });
   } catch (error: any) {
-    console.error('Get webhooks error:', error);
+    logError('Get webhooks error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -170,7 +172,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Get webhook error:', error);
+    logError('Get webhook error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -212,7 +214,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation error', details: error.errors });
     }
-    console.error('Create webhook error:', error);
+    logError('Create webhook error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -256,7 +258,10 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Update webhook error:', error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
+    logError('Update webhook error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -286,7 +291,7 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
     res.json({ message: 'Webhook deleted successfully' });
   } catch (error: any) {
-    console.error('Delete webhook error:', error);
+    logError('Delete webhook error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -324,7 +329,7 @@ router.post('/:id/regenerate-secret', async (req: AuthenticatedRequest, res: Res
       message: 'Secret regenerated. Save this - it will not be shown again.',
     });
   } catch (error: any) {
-    console.error('Regenerate secret error:', error);
+    logError('Regenerate secret error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -411,7 +416,7 @@ router.post('/:id/test', async (req: AuthenticatedRequest, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Test webhook error:', error);
+    logError('Test webhook error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -465,7 +470,7 @@ router.get('/:id/deliveries', async (req: AuthenticatedRequest, res: Response) =
       },
     });
   } catch (error: any) {
-    console.error('Get deliveries error:', error);
+    logError('Get deliveries error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -508,7 +513,7 @@ router.post('/:id/toggle', async (req: AuthenticatedRequest, res: Response) => {
       message: `Webhook ${updated.isActive ? 'activated' : 'deactivated'}`,
     });
   } catch (error: any) {
-    console.error('Toggle webhook error:', error);
+    logError('Toggle webhook error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

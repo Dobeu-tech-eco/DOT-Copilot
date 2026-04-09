@@ -6,6 +6,7 @@
 
 import prisma from '../db';
 import { getNotificationMessage, SupportedLanguage } from './i18n';
+import { logError } from './logger';
 
 interface PushPayload {
   title: string;
@@ -199,7 +200,7 @@ class PushNotificationService {
         };
       }
     } catch (error: any) {
-      console.error('FCM send error:', error);
+      logError('FCM send error', error);
       return { success: false, error: error.message };
     }
   }

@@ -1,3 +1,4 @@
+import { logError } from '../services/logger';
 import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
@@ -31,7 +32,7 @@ router.get('/', validateQuery(paginationSchema), async (req: AuthenticatedReques
       },
     });
   } catch (error: any) {
-    console.error('Get fleets error:', error);
+    logError('Get fleets error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -53,7 +54,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
     res.json({ data: fleet });
   } catch (error: any) {
-    console.error('Get fleet error:', error);
+    logError('Get fleet error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -66,7 +67,7 @@ router.post('/', requireRole('ADMIN'), validateBody(createFleetSchema), async (r
 
     res.status(201).json({ data: fleet });
   } catch (error: any) {
-    console.error('Create fleet error:', error);
+    logError('Create fleet error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -87,7 +88,7 @@ router.put('/:id', requireRole('ADMIN', 'SUPERVISOR'), validateBody(updateFleetS
 
     res.json({ data: fleet });
   } catch (error: any) {
-    console.error('Update fleet error:', error);
+    logError('Update fleet error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -105,7 +106,7 @@ router.delete('/:id', requireRole('ADMIN'), async (req: AuthenticatedRequest, re
 
     res.json({ message: 'Fleet deleted successfully' });
   } catch (error: any) {
-    console.error('Delete fleet error:', error);
+    logError('Delete fleet error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

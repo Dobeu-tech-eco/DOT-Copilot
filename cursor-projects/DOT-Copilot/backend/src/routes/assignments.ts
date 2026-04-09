@@ -1,3 +1,4 @@
+import { logError } from '../services/logger';
 import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
@@ -57,7 +58,7 @@ router.get('/', validateQuery(querySchema), async (req: AuthenticatedRequest, re
       },
     });
   } catch (error: any) {
-    console.error('Get assignments error:', error);
+    logError('Get assignments error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -86,7 +87,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
     res.json({ data: assignment });
   } catch (error: any) {
-    console.error('Get assignment error:', error);
+    logError('Get assignment error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -116,7 +117,7 @@ router.post('/', requireRole('ADMIN', 'SUPERVISOR'), validateBody(createAssignme
 
     res.status(201).json({ data: assignment });
   } catch (error: any) {
-    console.error('Create assignment error:', error);
+    logError('Create assignment error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -155,7 +156,7 @@ router.put('/:id', validateBody(updateAssignmentSchema), async (req: Authenticat
 
     res.json({ data: assignment });
   } catch (error: any) {
-    console.error('Update assignment error:', error);
+    logError('Update assignment error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -173,7 +174,7 @@ router.delete('/:id', requireRole('ADMIN'), async (req: AuthenticatedRequest, re
 
     res.json({ message: 'Assignment deleted successfully' });
   } catch (error: any) {
-    console.error('Delete assignment error:', error);
+    logError('Delete assignment error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

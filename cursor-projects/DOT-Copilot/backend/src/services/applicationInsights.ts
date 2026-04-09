@@ -1,3 +1,4 @@
+import { logError } from './logger';
 import * as appInsights from 'applicationinsights';
 
 export function initApplicationInsights() {
@@ -41,7 +42,7 @@ export function initApplicationInsights() {
       console.log('Application Insights initialized (legacy mode)');
     }
   } catch (error) {
-    console.error('Failed to initialize Application Insights:', error);
+    logError('Failed to initialize Application Insights', error);
   }
 }
 

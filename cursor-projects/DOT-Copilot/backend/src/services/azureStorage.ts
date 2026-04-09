@@ -1,3 +1,4 @@
+import { logError } from './logger';
 import { BlobServiceClient, ContainerClient, BlobSASPermissions } from '@azure/storage-blob';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
@@ -21,7 +22,7 @@ class AzureStorageService {
         this.isConfigured = true;
         console.log('Azure Storage service configured');
       } catch (error) {
-        console.error('Failed to initialize Azure Storage:', error);
+        logError('Failed to initialize Azure Storage', error);
       }
     } else {
       console.warn('Azure Storage not configured - file uploads will fail');
@@ -35,7 +36,7 @@ class AzureStorageService {
     folder: string = 'uploads'
   ): Promise<{ url: string; blobName: string } | null> {
     if (!this.isConfigured || !this.containerClient) {
-      console.error('Azure Storage service not configured');
+      logError('Azure Storage service not configured');
       return null;
     }
 
@@ -55,7 +56,7 @@ class AzureStorageService {
       
       return { url, blobName };
     } catch (error) {
-      console.error('Failed to upload file to Azure Storage:', error);
+      logError('Failed to upload file to Azure Storage', error);
       return null;
     }
   }
@@ -79,7 +80,7 @@ class AzureStorageService {
 
       return sasToken;
     } catch (error) {
-      console.error('Failed to generate signed URL:', error);
+      logError('Failed to generate signed URL', error);
       return null;
     }
   }
@@ -94,7 +95,7 @@ class AzureStorageService {
       await blockBlobClient.delete();
       return true;
     } catch (error) {
-      console.error('Failed to delete file from Azure Storage:', error);
+      logError('Failed to delete file from Azure Storage', error);
       return false;
     }
   }

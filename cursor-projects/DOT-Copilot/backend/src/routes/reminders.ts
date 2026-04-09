@@ -1,3 +1,4 @@
+import { logError } from '../services/logger';
 import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
@@ -80,7 +81,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
 
     res.json({ data: reminders });
   } catch (error: any) {
-    console.error('Get reminders error:', error);
+    logError('Get reminders error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -125,7 +126,7 @@ router.get('/upcoming', async (req: AuthenticatedRequest, res: Response) => {
       count: reminders.length,
     });
   } catch (error: any) {
-    console.error('Get upcoming reminders error:', error);
+    logError('Get upcoming reminders error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -165,7 +166,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
     res.json({ data: reminder });
   } catch (error: any) {
-    console.error('Get reminder error:', error);
+    logError('Get reminder error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -219,7 +220,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation error', details: error.errors });
     }
-    console.error('Create reminder error:', error);
+    logError('Create reminder error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -268,7 +269,7 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
     res.json({ data: reminder });
   } catch (error: any) {
-    console.error('Update reminder error:', error);
+    logError('Update reminder error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -304,7 +305,7 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
     res.json({ message: 'Reminder deleted successfully' });
   } catch (error: any) {
-    console.error('Delete reminder error:', error);
+    logError('Delete reminder error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -369,7 +370,7 @@ router.post('/:id/complete', async (req: AuthenticatedRequest, res: Response) =>
 
     res.json({ data: reminder, message: 'Reminder completed' });
   } catch (error: any) {
-    console.error('Complete reminder error:', error);
+    logError('Complete reminder error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -411,7 +412,7 @@ router.post('/:id/snooze', async (req: AuthenticatedRequest, res: Response) => {
 
     res.json({ data: reminder, message: `Snoozed for ${minutes} minutes` });
   } catch (error: any) {
-    console.error('Snooze reminder error:', error);
+    logError('Snooze reminder error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

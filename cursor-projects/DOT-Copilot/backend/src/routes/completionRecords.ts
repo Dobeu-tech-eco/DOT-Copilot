@@ -1,3 +1,4 @@
+import { logError } from '../services/logger';
 import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
@@ -56,7 +57,7 @@ router.get('/', validateQuery(querySchema), async (req: AuthenticatedRequest, re
       },
     });
   } catch (error: any) {
-    console.error('Get completion records error:', error);
+    logError('Get completion records error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -105,7 +106,7 @@ router.post('/', validateBody(createCompletionRecordSchema), async (req: Authent
 
     res.status(201).json({ data: record });
   } catch (error: any) {
-    console.error('Create completion record error:', error);
+    logError('Create completion record error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -135,7 +136,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
     res.json({ data: record });
   } catch (error: any) {
-    console.error('Get completion record error:', error);
+    logError('Get completion record error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

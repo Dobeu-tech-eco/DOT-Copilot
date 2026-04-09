@@ -1,9 +1,11 @@
+import { logError } from '../services/logger';
 import { Router, Response } from 'express';
 import crypto from 'crypto';
 import multer from 'multer';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import storageService from '../services/storage';
 import azureStorageService from '../services/azureStorage';
+import { sanitizeStorageKey } from '../utils/security';
 
 const router = Router();
 
@@ -86,7 +88,7 @@ router.post('/', requireRole('ADMIN', 'SUPERVISOR'), upload.single('file'), asyn
       },
     });
   } catch (error: any) {
-    console.error('Upload error:', error);
+    logError('Upload error', error);
     res.status(500).json({ error: error.message || 'Upload failed' });
   }
 });
@@ -117,7 +119,7 @@ router.get('/download/:key(*)', async (req: AuthenticatedRequest, res: Response)
 
     res.json({ data: { url } });
   } catch (error: any) {
-    console.error('Download URL error:', error);
+    logError('Download URL error', error);
     res.status(500).json({ error: 'Failed to generate download URL' });
   }
 });
@@ -142,7 +144,7 @@ router.delete('/:key(*)', requireRole('ADMIN'), async (req: AuthenticatedRequest
 
     res.json({ message: 'File deleted successfully' });
   } catch (error: any) {
-    console.error('Delete error:', error);
+    logError('Delete error', error);
     res.status(500).json({ error: 'Failed to delete file' });
   }
 });

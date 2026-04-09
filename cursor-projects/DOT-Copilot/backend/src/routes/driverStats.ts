@@ -1,3 +1,4 @@
+import { logError } from '../services/logger';
 import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
@@ -58,7 +59,7 @@ router.get('/me', async (req: AuthenticatedRequest, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Get my stats error:', error);
+    logError('Get my stats error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -147,7 +148,7 @@ router.get('/rankings', async (req: AuthenticatedRequest, res: Response) => {
       totalDrivers: driversWithStats.length,
     });
   } catch (error: any) {
-    console.error('Get rankings error:', error);
+    logError('Get rankings error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -192,7 +193,7 @@ router.get('/:userId', async (req: AuthenticatedRequest, res: Response) => {
 
     res.json({ data: stats });
   } catch (error: any) {
-    console.error('Get driver stats error:', error);
+    logError('Get driver stats error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -215,7 +216,7 @@ router.post('/:userId/refresh', requireRole('ADMIN', 'SUPERVISOR'), async (req: 
       message: 'Stats recalculated successfully',
     });
   } catch (error: any) {
-    console.error('Refresh stats error:', error);
+    logError('Refresh stats error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -313,7 +314,7 @@ router.get('/fleet/summary', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'
       },
     });
   } catch (error: any) {
-    console.error('Get fleet summary error:', error);
+    logError('Get fleet summary error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

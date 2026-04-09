@@ -1,3 +1,4 @@
+import { logError } from '../services/logger';
 import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
@@ -17,7 +18,7 @@ router.get('/lessons/:lessonId/questions', async (req: AuthenticatedRequest, res
 
     res.json({ data: questions });
   } catch (error: any) {
-    console.error('Get quiz questions error:', error);
+    logError('Get quiz questions error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -31,7 +32,7 @@ router.post('/questions', requireRole('ADMIN', 'SUPERVISOR'), validateBody(creat
 
     res.status(201).json({ data: question });
   } catch (error: any) {
-    console.error('Create quiz question error:', error);
+    logError('Create quiz question error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -53,7 +54,7 @@ router.put('/questions/:id', requireRole('ADMIN', 'SUPERVISOR'), validateBody(up
 
     res.json({ data: question });
   } catch (error: any) {
-    console.error('Update quiz question error:', error);
+    logError('Update quiz question error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -72,7 +73,7 @@ router.delete('/questions/:id', requireRole('ADMIN'), async (req: AuthenticatedR
 
     res.json({ message: 'Quiz question deleted successfully' });
   } catch (error: any) {
-    console.error('Delete quiz question error:', error);
+    logError('Delete quiz question error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -114,7 +115,7 @@ router.post('/responses', validateBody(createQuizResponseSchema), async (req: Au
       },
     });
   } catch (error: any) {
-    console.error('Create quiz response error:', error);
+    logError('Create quiz response error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -137,7 +138,7 @@ router.get('/lessons/:lessonId/responses', async (req: AuthenticatedRequest, res
 
     res.json({ data: responses });
   } catch (error: any) {
-    console.error('Get quiz responses error:', error);
+    logError('Get quiz responses error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -161,7 +162,7 @@ router.get('/completion-records/:recordId/score', async (req: AuthenticatedReque
       },
     });
   } catch (error: any) {
-    console.error('Get quiz score error:', error);
+    logError('Get quiz score error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

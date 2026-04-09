@@ -1,3 +1,4 @@
+import { logError } from '../services/logger';
 import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
@@ -54,7 +55,7 @@ router.get('/', validateQuery(querySchema), async (req: AuthenticatedRequest, re
       },
     });
   } catch (error: any) {
-    console.error('Get notifications error:', error);
+    logError('Get notifications error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -80,7 +81,7 @@ router.put('/:id/read', async (req: AuthenticatedRequest, res: Response) => {
 
     res.json({ data: updated });
   } catch (error: any) {
-    console.error('Mark notification read error:', error);
+    logError('Mark notification read error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -94,7 +95,7 @@ router.put('/read-all', async (req: AuthenticatedRequest, res: Response) => {
 
     res.json({ message: 'All notifications marked as read' });
   } catch (error: any) {
-    console.error('Mark all read error:', error);
+    logError('Mark all read error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

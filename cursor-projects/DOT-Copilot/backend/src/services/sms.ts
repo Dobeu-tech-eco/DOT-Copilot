@@ -5,6 +5,7 @@
 
 import prisma from '../db';
 import { getNotificationMessage, SupportedLanguage } from './i18n';
+import { logError } from './logger';
 
 interface SmsResult {
   success: boolean;
@@ -93,7 +94,7 @@ class SmsService {
         };
       }
     } catch (error: any) {
-      console.error('SMS send error:', error);
+      logError('SMS send error', error);
       return { success: false, error: error.message };
     }
   }

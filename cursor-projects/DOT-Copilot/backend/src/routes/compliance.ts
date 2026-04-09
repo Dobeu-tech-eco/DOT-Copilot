@@ -1,3 +1,4 @@
+import { logError } from '../services/logger';
 import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
@@ -79,7 +80,7 @@ router.get('/requirements', async (req: AuthenticatedRequest, res: Response) => 
 
     res.json({ data: requirements });
   } catch (error: any) {
-    console.error('Get compliance requirements error:', error);
+    logError('Get compliance requirements error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -110,7 +111,7 @@ router.post('/requirements', requireRole('ADMIN', 'SUPERVISOR'), async (req: Aut
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation error', details: error.issues });
     }
-    console.error('Create compliance requirement error:', error);
+    logError('Create compliance requirement error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -137,7 +138,7 @@ router.put('/requirements/:id', requireRole('ADMIN', 'SUPERVISOR'), async (req: 
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Requirement not found' });
     }
-    console.error('Update compliance requirement error:', error);
+    logError('Update compliance requirement error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -162,7 +163,7 @@ router.delete('/requirements/:id', requireRole('ADMIN'), async (req: Authenticat
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Requirement not found' });
     }
-    console.error('Delete compliance requirement error:', error);
+    logError('Delete compliance requirement error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -291,7 +292,7 @@ router.get('/drivers', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), asy
       }
     });
   } catch (error: any) {
-    console.error('Get driver compliance error:', error);
+    logError('Get driver compliance error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -348,7 +349,7 @@ router.get('/drivers/:userId', async (req: AuthenticatedRequest, res: Response) 
       },
     });
   } catch (error: any) {
-    console.error('Get driver compliance detail error:', error);
+    logError('Get driver compliance detail error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -402,7 +403,7 @@ router.put('/drivers/:userId/requirements/:requirementId', requireRole('ADMIN', 
 
     res.json({ data: compliance });
   } catch (error: any) {
-    console.error('Update driver compliance error:', error);
+    logError('Update driver compliance error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -533,7 +534,7 @@ router.get('/dashboard', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), a
       },
     });
   } catch (error: any) {
-    console.error('Get compliance dashboard error:', error);
+    logError('Get compliance dashboard error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -599,7 +600,7 @@ router.get('/expiring', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), as
       },
     });
   } catch (error: any) {
-    console.error('Get expiring items error:', error);
+    logError('Get expiring items error', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
