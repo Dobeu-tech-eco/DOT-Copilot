@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__composio__COMPOSIO_SEARCH_TOOLS",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); text=data[0]['text']; parsed=json.loads\\(text\\); print\\(json.dumps\\({'session_id': parsed.get\\('session_id',''\\), 'execution_plan': parsed.get\\('execution_plan',''\\)[:2000], 'pitfalls': parsed.get\\('pitfalls',''\\)[:1000], 'tool_count': len\\(parsed.get\\('tools',[]\\)\\), 'tool_names': [t.get\\('name',''\\) for t in parsed.get\\('tools',[]\\)]}, indent=2\\)\\)\")",
+      "Bash(python3 -c ':*)",
+      "Bash(python3:*)",
+      "mcp__composio__COMPOSIO_GET_TOOL_SCHEMAS",
+      "mcp__composio__COMPOSIO_MULTI_EXECUTE_TOOL",
+      "Bash(npx tsc:*)",
+      "Bash(node_modules/.bin/tsc --noEmit)"
+    ]
+  }
+}
