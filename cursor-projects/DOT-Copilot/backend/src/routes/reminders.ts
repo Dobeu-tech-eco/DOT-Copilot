@@ -218,7 +218,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
     res.status(201).json({ data: reminder });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation error', details: error.errors });
+      return res.status(400).json({ error: 'Validation error', details: error.issues });
     }
     logError('Create reminder error', error);
     res.status(500).json({ error: 'Internal server error' });

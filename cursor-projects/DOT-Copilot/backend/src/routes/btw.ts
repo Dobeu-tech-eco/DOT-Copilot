@@ -23,7 +23,7 @@ const btwSessionSchema = z.object({
   vehicleId: z.string().optional(),
   startLocation: z.string().optional(),
   endLocation: z.string().optional(),
-  skillsChecklist: z.record(z.boolean()).default({}),
+  skillsChecklist: z.record(z.string(), z.boolean()).default({}),
   overallRating: z.number().int().min(1).max(5).optional(),
   trainerNotes: z.string().optional(),
   areasForImprovement: z.string().optional(),
@@ -203,7 +203,7 @@ router.post('/sessions', requireRole('ADMIN', 'SUPERVISOR', 'DRIVER_COACH'), asy
         vehicleId: validated.vehicleId,
         startLocation: validated.startLocation,
         endLocation: validated.endLocation,
-        skillsChecklist: validated.skillsChecklist,
+        skillsChecklist: validated.skillsChecklist as Record<string, boolean>,
         overallRating: validated.overallRating,
         trainerNotes: validated.trainerNotes,
         areasForImprovement: validated.areasForImprovement,
@@ -222,7 +222,7 @@ router.post('/sessions', requireRole('ADMIN', 'SUPERVISOR', 'DRIVER_COACH'), asy
     res.status(201).json({ data: session });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation error', details: error.errors });
+      return res.status(400).json({ error: 'Validation error', details: error.issues });
     }
     logError('Create BTW session error', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -263,10 +263,12 @@ router.put('/sessions/:id', requireRole('ADMIN', 'SUPERVISOR', 'DRIVER_COACH'), 
       totalMinutes = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60));
     }
 
+    const { skillsChecklist: sc, ...restValidated } = validated;
     const session = await prisma.btwSession.update({
       where: { id },
       data: {
-        ...validated,
+        ...restValidated,
+        ...(sc !== undefined && { skillsChecklist: sc as Record<string, boolean> }),
         sessionDate: validated.sessionDate ? new Date(validated.sessionDate) : undefined,
         startTime: validated.startTime ? new Date(validated.startTime) : undefined,
         endTime: validated.endTime ? new Date(validated.endTime) : undefined,

@@ -30,7 +30,7 @@ export function LoginPage() {
 
     try {
       loginSchema.parse({ email, password })
-    } catch (err) {
+    } catch (err: unknown) {
       if (err instanceof z.ZodError) {
         setValidationError(err.issues[0].message)
         return

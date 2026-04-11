@@ -144,7 +144,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  fetchProfiles: async (fleetId: string) => {
+  fetchProfiles: async (_fleetId: string) => {
     set(s => ({ loading: { ...s.loading, profiles: true } }))
     try {
       const res = await api.get<{ data: any[] }>(`/users?page=1&limit=500`)
@@ -156,7 +156,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  fetchTrainingPrograms: async (fleetId: string) => {
+  fetchTrainingPrograms: async (_fleetId: string) => {
     set(s => ({ loading: { ...s.loading, trainingPrograms: true } }))
     try {
       const res = await api.get<{ data: any[] }>(`/training-programs?page=1&limit=500`)
@@ -180,7 +180,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  fetchAssignments: async (fleetId: string) => {
+  fetchAssignments: async (_fleetId: string) => {
     set(s => ({ loading: { ...s.loading, assignments: true } }))
     try {
       const res = await api.get<{ data: any[] }>(`/assignments?page=1&limit=500`)
@@ -195,11 +195,21 @@ export const useAppStore = create<AppState>((set, get) => ({
         training_program_id: a.training_program_id ?? a.trainingProgramId ?? null,
         assigned_by: a.assigned_by ?? a.assignedBy ?? null,
         priority: a.priority ?? 'normal',
+        reminders_sent: a.reminders_sent ?? a.remindersSent ?? 0,
         created_at: a.created_at ?? a.createdAt ?? '',
         profiles: a.user ? snakeToCamelProfile(a.user) : undefined,
         training_programs: a.trainingProgram ? {
           id: a.trainingProgram.id,
           program_name: a.trainingProgram.programName ?? a.trainingProgram.program_name ?? '',
+          description: a.trainingProgram.description ?? null,
+          is_recommended: a.trainingProgram.isRecommended ?? a.trainingProgram.is_recommended ?? false,
+          fleet_id: a.trainingProgram.fleetId ?? a.trainingProgram.fleet_id ?? '',
+          is_template: a.trainingProgram.isTemplate ?? a.trainingProgram.is_template ?? false,
+          template_category: a.trainingProgram.templateCategory ?? a.trainingProgram.template_category ?? null,
+          estimated_duration: a.trainingProgram.estimatedDuration ?? a.trainingProgram.estimated_duration ?? null,
+          compliance_requirement_id: a.trainingProgram.complianceRequirementId ?? a.trainingProgram.compliance_requirement_id ?? null,
+          created_at: a.trainingProgram.createdAt ?? a.trainingProgram.created_at ?? '',
+          updated_at: a.trainingProgram.updatedAt ?? a.trainingProgram.updated_at ?? '',
         } : undefined,
       }))
       set(s => ({ assignments, loading: { ...s.loading, assignments: false } }))
@@ -209,7 +219,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  fetchComplianceRecords: async (fleetId: string) => {
+  fetchComplianceRecords: async (_fleetId: string) => {
     set(s => ({ loading: { ...s.loading, compliance: true } }))
     try {
       const res = await api.get<{ data: any[] }>(`/compliance/drivers`)
@@ -220,7 +230,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  fetchDocuments: async (fleetId: string) => {
+  fetchDocuments: async (_fleetId: string) => {
     set(s => ({ loading: { ...s.loading, documents: true } }))
     try {
       const res = await api.get<{ data: any[] }>(`/documents`)
@@ -231,6 +241,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         issued_date: d.issued_date ?? d.issuedDate ?? null,
         expiration_date: d.expiration_date ?? d.expirationDate ?? '',
         issuing_state: d.issuing_state ?? d.issuingState ?? null,
+        cdl_class: d.cdl_class ?? d.cdlClass ?? null,
+        endorsements: d.endorsements ?? [],
+        restrictions: d.restrictions ?? [],
         status: d.status ?? 'valid',
         user_id: d.user_id ?? d.userId ?? '',
         fleet_id: d.fleet_id ?? d.fleetId ?? '',
@@ -244,21 +257,23 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  fetchVehicles: async (fleetId: string) => {
+  fetchVehicles: async (_fleetId: string) => {
     set(s => ({ loading: { ...s.loading, vehicles: true } }))
     // API endpoint not yet implemented
     set(s => ({ vehicles: [], loading: { ...s.loading, vehicles: false } }))
   },
 
-  fetchNotifications: async (userId: string) => {
+  fetchNotifications: async (_userId: string) => {
     set(s => ({ loading: { ...s.loading, notifications: true } }))
     try {
       const res = await api.get<{ data: any[] }>(`/notifications?page=1&limit=50`)
       const notifs = (res.data || []).map((n: any) => ({
         id: n.id,
+        title: n.title ?? '',
         message: n.message,
         notification_type: n.notification_type ?? n.notificationType ?? '',
         is_read: n.is_read ?? n.isRead ?? false,
+        action_url: n.action_url ?? n.actionUrl ?? null,
         user_id: n.user_id ?? n.userId ?? '',
         fleet_id: n.fleet_id ?? n.fleetId ?? '',
         created_at: n.created_at ?? n.createdAt ?? '',
@@ -270,7 +285,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  fetchComplianceRequirements: async (fleetId: string) => {
+  fetchComplianceRequirements: async (_fleetId: string) => {
     try {
       const res = await api.get<{ data: any[] }>(`/compliance/requirements`)
       const reqs = (res.data || []).map((r: any) => ({
@@ -283,6 +298,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         applies_to: r.applies_to ?? r.appliesTo ?? [],
         is_active: r.is_active ?? r.isActive ?? true,
         fleet_id: r.fleet_id ?? r.fleetId ?? null,
+        alert_days: r.alert_days ?? r.alertDays ?? [],
         created_at: r.created_at ?? r.createdAt ?? '',
       }))
       set({ complianceRequirements: reqs })
@@ -291,7 +307,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  fetchDashboardStats: async (fleetId: string) => {
+  fetchDashboardStats: async (_fleetId: string) => {
     set(s => ({ loading: { ...s.loading, dashboard: true } }))
     const store = get()
 
@@ -369,7 +385,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  addVehicle: async (vehicle) => {
+  addVehicle: async (_vehicle) => {
     // API not yet implemented
     console.warn('addVehicle API not yet implemented')
   },
@@ -400,7 +416,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  addComplianceRecord: async (record) => {
+  addComplianceRecord: async (_record) => {
     // API not yet implemented
     console.warn('addComplianceRecord API not yet implemented')
   },

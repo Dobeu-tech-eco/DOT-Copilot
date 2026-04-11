@@ -14,6 +14,7 @@ import { correlationIdMiddleware } from './middleware/correlationId';
 import { env } from './config/env';
 import { errorHandler } from './middleware/errorHandler';
 import { performanceMiddleware } from './utils/performance';
+import prisma from './db';
 
 initSentry();
 initApplicationInsights();
