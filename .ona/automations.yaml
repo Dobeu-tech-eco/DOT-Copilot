@@ -1,0 +1,217 @@
+version: "1"
+
+automations:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Automation 1: Nightly Build + Test
+  #
+  # Runs TypeScript type checks and test suites across all three packages every
+  # night. Creates a GitHub issue if any check fails so failures are not missed.
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: nightly-build-and-test
+    description: "Nightly type check and test run across root frontend, backend, and inner frontend"
+    trigger:
+      schedule:
+        cron: "0 2 * * *"   # 02:00 UTC daily
+    steps:
+      - name: install-root-deps
+        command: "npm install --prefix /workspaces/DOT-Copilot"
+
+      - name: install-backend-deps
+        command: "npm install --prefix /workspaces/DOT-Copilot/cursor-projects/DOT-Copilot/backend"
+
+      - name: install-frontend-deps
+        command: "npm install --prefix /workspaces/DOT-Copilot/cursor-projects/DOT-Copilot/frontend"
+
+      - name: typecheck-root
+        command: "npm run lint --prefix /workspaces/DOT-Copilot"
+        # Equivalent to: npx tsc --noEmit (root tsconfig.json)
+
+      - name: build-root
+        command: "npm run build --prefix /workspaces/DOT-Copilot"
+        # Catches Vite/Rollup bundle errors
+
+      - name: typecheck-backend
+        command: "npm run lint --prefix /workspaces/DOT-Copilot/cursor-projects/DOT-Copilot/backend"
+
+      - name: test-backend
+        command: "npm test --prefix /workspaces/DOT-Copilot/cursor-projects/DOT-Copilot/backend"
+        env:
+          NODE_ENV: test
+          # DATABASE_URL must be set as an environment secret in Ona
+
+      - name: typecheck-inner-frontend
+        command: "npm run lint --prefix /workspaces/DOT-Copilot/cursor-projects/DOT-Copilot/frontend"
+
+      - name: test-inner-frontend
+        command: "npm test --prefix /workspaces/DOT-Copilot/cursor-projects/DOT-Copilot/frontend"
+
+    on_failure:
+      # Notify via GitHub issue when any step fails
+      - name: create-failure-issue
+        action: github.create_issue
+        params:
+          title: "Nightly build/test failed — {{ date }}"
+          body: |
+            The nightly build and test automation failed.
+
+            **Failed step:** {{ failed_step.name }}
+            **Error:**
+            ```
+            {{ failed_step.output }}
+            ```
+
+            **Run date:** {{ date }}
+
+            Please investigate and fix before the next release.
+          labels:
+            - "ci-failure"
+            - "automated"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Automation 2: Weekly Stale Branch Cleanup
+  #
+  # Lists remote branches that have been merged into main and are older than
+  # 14 days. Deletes them automatically, with a protected branch list to prevent
+  # accidental deletion of important branches.
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: weekly-stale-branch-cleanup
+    description: "Delete remote branches merged into main and older than 14 days"
+    trigger:
+      schedule:
+        cron: "0 6 * * 1"   # 06:00 UTC every Monday
+    steps:
+      - name: fetch-and-prune
+        command: "git fetch --prune origin"
+
+      - name: delete-merged-branches
+        command: |
+          # Protected branches — never delete these
+          PROTECTED="main staging bolt-dev"
+
+          # Find branches merged into main, older than 14 days
+          git branch -r --merged origin/main \
+            | grep -v "HEAD\|origin/main" \
+            | sed 's|origin/||' \
+            | while read branch; do
+                # Skip protected branches
+                if echo "$PROTECTED" | grep -qw "$branch"; then
+                  echo "Skipping protected branch: $branch"
+                  continue
+                fi
+
+                # Check branch age (last commit date)
+                LAST_COMMIT=$(git log -1 --format="%ct" "origin/$branch" 2>/dev/null)
+                NOW=$(date +%s)
+                AGE_DAYS=$(( (NOW - LAST_COMMIT) / 86400 ))
+
+                if [ "$AGE_DAYS" -gt 14 ]; then
+                  echo "Deleting stale branch: $branch (${AGE_DAYS} days old)"
+                  git push origin --delete "$branch"
+                else
+                  echo "Keeping recent branch: $branch (${AGE_DAYS} days old)"
+                fi
+              done
+
+      - name: report-cleanup
+        command: |
+          echo "Stale branch cleanup complete."
+          echo "Remaining remote branches:"
+          git branch -r | grep -v HEAD
+
+    on_failure:
+      - name: log-failure
+        action: github.create_issue
+        params:
+          title: "Weekly branch cleanup failed — {{ date }}"
+          body: |
+            The weekly stale branch cleanup automation failed.
+
+            **Failed step:** {{ failed_step.name }}
+            **Error:**
+            ```
+            {{ failed_step.output }}
+            ```
+          labels:
+            - "ci-failure"
+            - "automated"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Automation 3: PR Migration Sync Check
+  #
+  # Triggered when a PR modifies files under supabase/migrations/ or
+  # cursor-projects/DOT-Copilot/backend/prisma/. Checks that all tables defined
+  # in Prisma (via @@map annotations) have a corresponding CREATE TABLE in the
+  # Supabase migrations. Fails the check if drift is detected.
+  #
+  # Implements Phase 2 of docs/migration-plan.md.
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: pr-migration-sync-check
+    description: "Verify Supabase and Prisma schemas are in sync on PRs that touch migrations"
+    trigger:
+      pull_request:
+        events:
+          - opened
+          - synchronize
+        paths:
+          - "supabase/migrations/**"
+          - "cursor-projects/DOT-Copilot/backend/prisma/**"
+    steps:
+      - name: extract-prisma-tables
+        command: |
+          grep '@@map(' cursor-projects/DOT-Copilot/backend/prisma/schema.prisma \
+            | sed 's/.*@@map("//;s/").*//' \
+            | sort \
+            > /tmp/prisma-tables.txt
+          echo "Prisma tables:"
+          cat /tmp/prisma-tables.txt
+
+      - name: extract-supabase-tables
+        command: |
+          grep -h "^CREATE TABLE" supabase/migrations/*.sql \
+            | sed 's/CREATE TABLE IF NOT EXISTS //;s/ (.*//' \
+            | sort -u \
+            > /tmp/supabase-tables.txt
+          echo "Supabase tables:"
+          cat /tmp/supabase-tables.txt
+
+      - name: diff-tables
+        command: |
+          MISSING=$(comm -23 /tmp/prisma-tables.txt /tmp/supabase-tables.txt)
+          EXTRA=$(comm -13 /tmp/prisma-tables.txt /tmp/supabase-tables.txt)
+
+          if [ -n "$MISSING" ]; then
+            echo "❌ Tables in Prisma schema missing from Supabase migrations:"
+            echo "$MISSING"
+            echo ""
+            echo "Add a Supabase migration for each missing table following the pattern in"
+            echo "supabase/migrations/20260410232616_add_btw_sessions_and_webhooks.sql"
+            exit 1
+          fi
+
+          if [ -n "$EXTRA" ]; then
+            echo "⚠️  Tables in Supabase migrations not in Prisma schema (informational):"
+            echo "$EXTRA"
+            echo "These may be Supabase-specific tables (auth.*, storage.*) — verify manually."
+          fi
+
+          echo "✅ Schema sync check passed — all Prisma tables have Supabase migrations."
+
+    on_failure:
+      - name: comment-on-pr
+        action: github.create_pr_comment
+        params:
+          body: |
+            ## ❌ Schema Sync Check Failed
+
+            This PR modifies database migrations but the Supabase and Prisma schemas are out of sync.
+
+            **Missing from Supabase migrations:**
+            ```
+            {{ failed_step.output }}
+            ```
+
+            **How to fix:**
+            1. Create a new Supabase migration: `npx supabase migration new <table-name>`
+            2. Add `CREATE TABLE`, RLS policies, and indexes following the pattern in
+               `supabase/migrations/20260410232616_add_btw_sessions_and_webhooks.sql`
+            3. See `docs/migration-plan.md` for the full workflow.

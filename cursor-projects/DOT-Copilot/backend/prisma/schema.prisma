@@ -227,6 +227,7 @@ model Fleet {
   scheduledReports       ScheduledReport[]
   trainingTriggers       TrainingTrigger[]
   driverDocuments        DriverDocument[]
+  btwSessions            BtwSession[]
 
   @@map("fleets")
 }
@@ -634,42 +635,50 @@ model BtwSession {
   id              String   @id @default(cuid())
   traineeId       String   @map("trainee_id")
   trainerId       String   @map("trainer_id")
+  // fleetId added for multi-tenant scoping; nullable for backward compatibility with existing rows
+  fleetId         String?  @map("fleet_id")
   sessionDate     DateTime @map("session_date")
   startTime       DateTime @map("start_time")
   endTime         DateTime @map("end_time")
-  totalMinutes    Int      @map("total_minutes")
-  
+  totalMinutes    Int      @default(0) @map("total_minutes")
+
   // Session details
-  routeType       String   @map("route_type") // city, highway, rural, backing, dock
+  routeType       String   @map("route_type") // city, highway, rural, backing, dock, mountain, mixed
   vehicleType     String?  @map("vehicle_type")
   vehicleId       String?  @map("vehicle_id")
   startLocation   String?  @map("start_location")
   endLocation     String?  @map("end_location")
-  
-  // Skills checklist (JSON)
-  skillsChecklist Json     @map("skills_checklist")
-  // Example: { "pre_trip": true, "backing": true, "shifting": true, "lane_change": false }
-  
+
+  // Skills checklist (JSON) — keys are skill slugs, values are booleans
+  // Example: { "pre_trip_inspection": true, "backing_straight": false }
+  skillsChecklist Json     @default("{}") @map("skills_checklist")
+
   // Evaluation
-  overallRating   Int?     @map("overall_rating") // 1-5
-  trainerNotes    String?  @map("trainer_notes")
+  overallRating       Int?    @map("overall_rating") // 1-5
+  trainerNotes        String? @map("trainer_notes")
   areasForImprovement String? @map("areas_for_improvement")
-  
-  // Signatures
-  trainerSignature  String?   @map("trainer_signature")
-  trainerSignedAt   DateTime? @map("trainer_signed_at")
-  traineeSignature  String?   @map("trainee_signature")
-  traineeSignedAt   DateTime? @map("trainee_signed_at")
-  
-  // Status
-  status          String   @default("pending") // pending, completed, cancelled
-  
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-  
-  trainee User @relation("TraineeSessions", fields: [traineeId], references: [id], onDelete: Cascade)
-  trainer User @relation("TrainerSessions", fields: [trainerId], references: [id], onDelete: Cascade)
-  
+
+  // Digital signatures (base64-encoded data URI)
+  trainerSignature String?   @map("trainer_signature")
+  trainerSignedAt  DateTime? @map("trainer_signed_at")
+  traineeSignature String?   @map("trainee_signature")
+  traineeSignedAt  DateTime? @map("trainee_signed_at")
+
+  // Lifecycle status: pending | completed | cancelled
+  status    String   @default("pending")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  trainee User   @relation("TraineeSessions", fields: [traineeId], references: [id], onDelete: Cascade)
+  trainer User   @relation("TrainerSessions", fields: [trainerId], references: [id], onDelete: Cascade)
+  fleet   Fleet? @relation(fields: [fleetId], references: [id], onDelete: SetNull)
+
+  @@index([traineeId])
+  @@index([trainerId])
+  @@index([fleetId])
+  @@index([status])
+  @@index([sessionDate(sort: Desc)])
   @@map("btw_sessions")
 }
 
