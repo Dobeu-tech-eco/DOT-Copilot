@@ -92,7 +92,7 @@ jobs:
         run: npm run build
 
       - name: Upload backend artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-dist
           path: |
@@ -102,7 +102,7 @@ jobs:
             ${{ env.INNER }}/backend/prisma
 
       - name: Upload frontend artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-dist
           path: dist
