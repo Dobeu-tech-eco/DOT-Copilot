@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { api, setTokens, clearTokens, loadTokens, getAccessToken } from '../lib/api'
+import { supabase } from '../lib/supabase'
 import type { Profile } from '../types/database'
 
 interface AuthState {
