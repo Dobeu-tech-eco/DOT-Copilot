@@ -1,115 +1,73 @@
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '../store/authStore'
 import { useAppStore } from '../store/appStore'
+import { usePermissions } from '../hooks/usePermissions'
 import { LoadingSpinner } from '../components/LoadingSpinner'
-import { TextInput, TextArea } from '../components/FormFields'
-import { Building2, Save, CheckCircle } from 'lucide-react'
+import { ProfileTab } from './settings/ProfileTab'
+import { NotificationsTab } from './settings/NotificationsTab'
+import { TeamTab } from './settings/TeamTab'
+import { User, Bell, Users } from 'lucide-react'
+
+type SettingsTab = 'profile' | 'notifications' | 'team'
 
 export function SettingsPage() {
   const { user } = useAuthStore()
-  const { fleet, loading, fetchFleet, updateFleet } = useAppStore()
-  const [saved, setSaved] = useState(false)
-  const [form, setForm] = useState({
-    company_name: '',
-    cargo_type: '',
-    operation_type: '',
-    states_of_operation: '',
-    locations: '',
-    vehicle_types: '',
-    key_risk_areas: '',
-    cdl_status: '',
-    default_language: 'en',
-  })
+  const { fetchProfiles, fetchFleet, loading } = useAppStore()
+  const { canManageUsers } = usePermissions()
+  const [tab, setTab] = useState<SettingsTab>('profile')
 
   useEffect(() => {
     if (user?.fleet_id) {
       fetchFleet(user.fleet_id)
+      if (canManageUsers) {
+        fetchProfiles(user.fleet_id)
+      }
     }
-  }, [user?.fleet_id, fetchFleet])
-
-  useEffect(() => {
-    if (fleet) {
-      setForm({
-        company_name: fleet.company_name,
-        cargo_type: fleet.cargo_type ?? '',
-        operation_type: fleet.operation_type ?? '',
-        states_of_operation: fleet.states_of_operation ?? '',
-        locations: fleet.locations ?? '',
-        vehicle_types: fleet.vehicle_types ?? '',
-        key_risk_areas: fleet.key_risk_areas ?? '',
-        cdl_status: fleet.cdl_status ?? '',
-        default_language: fleet.default_language,
-      })
-    }
-  }, [fleet])
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    updateFleet({
-      company_name: form.company_name,
-      cargo_type: form.cargo_type || null,
-      operation_type: form.operation_type || null,
-      states_of_operation: form.states_of_operation || null,
-      locations: form.locations || null,
-      vehicle_types: form.vehicle_types || null,
-      key_risk_areas: form.key_risk_areas || null,
-      cdl_status: form.cdl_status || null,
-      default_language: form.default_language,
-    })
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
-  }
+  }, [user?.fleet_id, canManageUsers])
 
   if (loading.fleet) return <LoadingSpinner />
 
+  const tabs: { id: SettingsTab; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
+    { id: 'profile', label: 'My Profile', icon: <User size={16} /> },
+    { id: 'notifications', label: 'Notifications', icon: <Bell size={16} /> },
+    ...(canManageUsers ? [{ id: 'team' as SettingsTab, label: 'Team', icon: <Users size={16} />, adminOnly: true }] : []),
+  ]
+
   return (
-    <div className="space-y-6 animate-fade-in max-w-3xl">
+    <div className="space-y-6 animate-fade-in max-w-4xl">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Company Settings</h1>
-        <p className="text-sm text-gray-500 mt-1">Manage your fleet company profile and configuration</p>
+        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+        <p className="text-sm text-gray-500 mt-1">Manage your profile, notifications, and team preferences</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="card p-6 space-y-5">
-          <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
-            <div className="p-2 rounded-lg bg-baldor-50 text-baldor-600"><Building2 size={20} /></div>
-            <div>
-              <h2 className="text-base font-semibold text-gray-900">Company Information</h2>
-              <p className="text-xs text-gray-500">Basic details about your fleet operation</p>
-            </div>
-          </div>
+      <div className="flex gap-6">
+        <aside className="w-48 flex-shrink-0">
+          <nav className="space-y-1">
+            {tabs.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left ${
+                  tab === t.id
+                    ? 'bg-baldor-50 text-baldor-700'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+              >
+                <span className={tab === t.id ? 'text-baldor-600' : 'text-gray-400'}>
+                  {t.icon}
+                </span>
+                {t.label}
+              </button>
+            ))}
+          </nav>
+        </aside>
 
-          <TextInput label="Company Name" value={form.company_name} onChange={v => setForm(f => ({ ...f, company_name: v }))} placeholder="Baldor Food Company" required />
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <TextInput label="Operation Type" value={form.operation_type} onChange={v => setForm(f => ({ ...f, operation_type: v }))} placeholder="Regional Distribution" />
-            <TextInput label="Cargo Type" value={form.cargo_type} onChange={v => setForm(f => ({ ...f, cargo_type: v }))} placeholder="Perishable Foods (Refrigerated)" />
-          </div>
-
-          <TextInput label="States of Operation" value={form.states_of_operation} onChange={v => setForm(f => ({ ...f, states_of_operation: v }))} placeholder="NY, NJ, CT, MA, PA" />
-
-          <TextArea label="Locations" value={form.locations} onChange={v => setForm(f => ({ ...f, locations: v }))} placeholder="Bronx, NY; Newark, NJ; Boston, MA" rows={2} />
+        <div className="flex-1 card p-6">
+          {tab === 'profile' && <ProfileTab />}
+          {tab === 'notifications' && <NotificationsTab />}
+          {tab === 'team' && canManageUsers && <TeamTab />}
         </div>
-
-        <div className="card p-6 space-y-5">
-          <h2 className="text-base font-semibold text-gray-900 pb-4 border-b border-gray-100">Fleet Configuration</h2>
-
-          <TextInput label="CDL Requirements" value={form.cdl_status} onChange={v => setForm(f => ({ ...f, cdl_status: v }))} placeholder="Class A & B Required" />
-          <TextInput label="Vehicle Types" value={form.vehicle_types} onChange={v => setForm(f => ({ ...f, vehicle_types: v }))} placeholder="Refrigerated Trucks, Delivery Vans, Box Trucks" />
-          <TextArea label="Key Risk Areas" value={form.key_risk_areas} onChange={v => setForm(f => ({ ...f, key_risk_areas: v }))} placeholder="Temperature Control, Loading Dock Safety, Route Planning" rows={2} />
-        </div>
-
-        <div className="flex items-center justify-end gap-3">
-          {saved && (
-            <span className="flex items-center gap-1.5 text-sm text-green-600 animate-fade-in">
-              <CheckCircle size={16} /> Settings saved
-            </span>
-          )}
-          <button type="submit" className="btn-primary">
-            <Save size={16} /> Save Settings
-          </button>
-        </div>
-      </form>
+      </div>
     </div>
   )
 }

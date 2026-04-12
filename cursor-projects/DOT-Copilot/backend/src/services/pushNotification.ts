@@ -189,7 +189,7 @@ class PushNotificationService {
         body: JSON.stringify(message),
       });
 
-      const result = await response.json();
+      const result = await response.json() as { success?: number; results?: Array<{ error?: string }> };
 
       if (result.success === 1) {
         return { success: true };

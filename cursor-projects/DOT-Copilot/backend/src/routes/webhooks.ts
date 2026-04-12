@@ -2,6 +2,7 @@ import { logError } from '../services/logger';
 import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
+import { WebhookEventType } from '@prisma/client';
 import { z } from 'zod';
 import crypto from 'crypto';
 import eventDispatcher from '../services/eventDispatcher';
@@ -46,7 +47,7 @@ const webhookSchema = z.object({
   }),
   events: z.array(z.enum(WEBHOOK_EVENT_TYPES)).min(1),
   secret: z.string().optional(),
-  headers: z.record(z.string()).optional(),
+  headers: z.record(z.string(), z.string()).optional(),
   maxRetries: z.number().int().min(0).max(10).default(3),
   retryDelayMs: z.number().int().min(100).max(60000).default(1000),
   isActive: z.boolean().default(true),
@@ -194,9 +195,11 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
     // Generate secret if not provided
     const secret = validated.secret || crypto.randomBytes(32).toString('hex');
 
+    const { events, ...restValidated } = validated;
     const webhook = await prisma.webhook.create({
       data: {
-        ...validated,
+        ...restValidated,
+        events: events as WebhookEventType[],
         secret,
         fleetId: user.fleetId!,
         createdBy: user.userId,
@@ -214,7 +217,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
     });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation error', details: error.errors });
+      return res.status(400).json({ error: 'Validation error', details: error.issues });
     }
     logError('Create webhook error', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -237,12 +240,16 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
     // Don't allow updating secret directly - use regenerate endpoint
     delete (validated as any).secret;
 
+    const { events: updEvents, ...restUpdate } = validated;
     const webhook = await prisma.webhook.updateMany({
       where: {
         id,
         fleetId: user.fleetId ?? undefined,
       },
-      data: validated,
+      data: {
+        ...restUpdate,
+        ...(updEvents !== undefined && { events: updEvents as WebhookEventType[] }),
+      },
     });
 
     if (webhook.count === 0) {
@@ -261,7 +268,7 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
     });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation error', details: error.errors });
+      return res.status(400).json({ error: 'Validation error', details: error.issues });
     }
     logError('Update webhook error', error);
     res.status(500).json({ error: 'Internal server error' });

@@ -1,61 +1,52 @@
 import { useEffect, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useAuthStore } from '../store/authStore'
 import { useAppStore } from '../store/appStore'
+import { usePermissions } from '../hooks/usePermissions'
+import { useToast } from '../store/toastStore'
 import { ComplianceBadge } from '../components/StatusBadge'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { EmptyState } from '../components/EmptyState'
 import { Modal } from '../components/Modal'
-import { TextInput, SelectInput, DateInput, TextArea } from '../components/FormFields'
-import { ShieldCheck, Search, Filter, FileText, AlertTriangle, CheckCircle, Plus, Pencil } from 'lucide-react'
-import type { ComplianceStatus, DocumentType, DriverCompliance, DriverDocument } from '../types/database'
+import { ConfirmDialog } from '../components/ConfirmDialog'
+import { FormInput, FormSelect, FormTextarea, FormSection } from '../components/FormField'
+import {
+  driverDocumentSchema, complianceRecordSchema, complianceRequirementSchema,
+  DOCUMENT_TYPES, COMPLIANCE_STATUSES,
+  type DriverDocumentFormData, type ComplianceRecordFormData, type ComplianceRequirementFormData,
+} from '../schemas/compliance.schema'
+import { USER_ROLES } from '../schemas/profile.schema'
+import {
+  ShieldCheck, Search, Filter, FileText, AlertTriangle, CheckCircle,
+  Plus, Pencil, Trash2, ClipboardList,
+} from 'lucide-react'
+import type { ComplianceStatus, DriverCompliance, DriverDocument, ComplianceRequirement } from '../types/database'
 
-const docTypeOptions = [
-  { value: 'CDL', label: 'CDL' },
-  { value: 'MEDICAL_CARD', label: 'Medical Card' },
-  { value: 'HAZMAT_ENDORSEMENT', label: 'HazMat Endorsement' },
-  { value: 'TWIC_CARD', label: 'TWIC Card' },
-  { value: 'MVR', label: 'Motor Vehicle Record' },
-  { value: 'DRUG_TEST', label: 'Drug Test' },
-  { value: 'BACKGROUND_CHECK', label: 'Background Check' },
-  { value: 'FOOD_HANDLER_CERT', label: 'Food Handler Cert' },
-  { value: 'OTHER', label: 'Other' },
-]
-
-const statusOptions = [
-  { value: 'COMPLIANT', label: 'Compliant' },
-  { value: 'EXPIRING_SOON', label: 'Expiring Soon' },
-  { value: 'EXPIRED', label: 'Expired' },
-  { value: 'IN_PROGRESS', label: 'In Progress' },
-  { value: 'NOT_STARTED', label: 'Not Started' },
-]
+type Tab = 'compliance' | 'documents' | 'requirements'
 
 export function CompliancePage() {
   const { user } = useAuthStore()
   const {
     complianceRecords, documents, complianceRequirements, profiles, loading,
     fetchComplianceRecords, fetchDocuments, fetchComplianceRequirements, fetchProfiles,
-    addComplianceRecord, updateComplianceRecord, addDocument, updateDocument,
+    updateComplianceRecord, createDocument, updateDocument, deleteDocument,
+    createRequirement, updateRequirement,
   } = useAppStore()
+  const { canManageCompliance, isAdmin } = usePermissions()
+  const toast = useToast()
+
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<ComplianceStatus | ''>('')
-  const [tab, setTab] = useState<'compliance' | 'documents'>('compliance')
-  const [showCompModal, setShowCompModal] = useState(false)
+  const [tab, setTab] = useState<Tab>('compliance')
+
+  const [editingRecord, setEditingRecord] = useState<DriverCompliance | null>(null)
   const [showDocModal, setShowDocModal] = useState(false)
-  const [editingComp, setEditingComp] = useState<DriverCompliance | null>(null)
   const [editingDoc, setEditingDoc] = useState<DriverDocument | null>(null)
-
-  const [compForm, setCompForm] = useState({
-    user_id: '', requirement_id: '', status: 'COMPLIANT' as ComplianceStatus,
-    completed_date: '', expiration_date: '', hours_completed: '',
-    notes: '', verified_by: '', verified_at: '',
-    certificate_url: null as string | null,
-  })
-
-  const [docForm, setDocForm] = useState({
-    user_id: '', document_type: 'CDL' as DocumentType, document_number: '',
-    issued_date: '', expiration_date: '', issuing_state: '',
-    cdl_class: '', status: 'valid',
-  })
+  const [deletingDoc, setDeletingDoc] = useState<DriverDocument | null>(null)
+  const [showReqModal, setShowReqModal] = useState(false)
+  const [editingReq, setEditingReq] = useState<ComplianceRequirement | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     if (user?.fleet_id) {
@@ -66,90 +57,15 @@ export function CompliancePage() {
     }
   }, [user?.fleet_id, fetchComplianceRecords, fetchDocuments, fetchComplianceRequirements, fetchProfiles])
 
-  const driverOptions = profiles
-    .filter(p => p.role === 'DRIVER' && p.is_active)
-    .map(p => ({ value: p.id, label: p.name ?? p.email }))
-
-  const reqOptions = complianceRequirements.map(r => ({ value: r.id, label: r.name }))
-
-  const openAddComp = () => {
-    setEditingComp(null)
-    setCompForm({ user_id: '', requirement_id: '', status: 'NOT_STARTED', completed_date: '', expiration_date: '', hours_completed: '', notes: '', verified_by: '', verified_at: '', certificate_url: null })
-    setShowCompModal(true)
-  }
-
-  const openEditComp = (c: DriverCompliance) => {
-    setEditingComp(c)
-    setCompForm({
-      user_id: c.user_id, requirement_id: c.requirement_id, status: c.status,
-      completed_date: c.completed_date ?? '', expiration_date: c.expiration_date ?? '',
-      hours_completed: c.hours_completed?.toString() ?? '', notes: c.notes ?? '',
-      verified_by: c.verified_by ?? '', verified_at: c.verified_at ?? '',
-      certificate_url: c.certificate_url,
-    })
-    setShowCompModal(true)
-  }
-
-  const handleCompSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const data = {
-      user_id: compForm.user_id,
-      requirement_id: compForm.requirement_id,
-      status: compForm.status,
-      completed_date: compForm.completed_date || null,
-      expiration_date: compForm.expiration_date || null,
-      hours_completed: compForm.hours_completed ? parseFloat(compForm.hours_completed) : null,
-      notes: compForm.notes || null,
-      verified_by: compForm.verified_by || null,
-      verified_at: compForm.verified_at || null,
-      certificate_url: compForm.certificate_url,
-    }
-    if (editingComp) {
-      updateComplianceRecord(editingComp.id, data)
-    } else {
-      addComplianceRecord(data)
-    }
-    setShowCompModal(false)
-  }
-
-  const openAddDoc = () => {
-    setEditingDoc(null)
-    setDocForm({ user_id: '', document_type: 'CDL', document_number: '', issued_date: '', expiration_date: '', issuing_state: '', cdl_class: '', status: 'valid' })
-    setShowDocModal(true)
-  }
-
-  const openEditDoc = (d: DriverDocument) => {
-    setEditingDoc(d)
-    setDocForm({
-      user_id: d.user_id, document_type: d.document_type, document_number: d.document_number ?? '',
-      issued_date: d.issued_date ?? '', expiration_date: d.expiration_date,
-      issuing_state: d.issuing_state ?? '', cdl_class: d.cdl_class ?? '', status: d.status,
-    })
-    setShowDocModal(true)
-  }
-
-  const handleDocSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const data = {
-      user_id: docForm.user_id,
-      fleet_id: user?.fleet_id ?? '',
-      document_type: docForm.document_type,
-      document_number: docForm.document_number || null,
-      issued_date: docForm.issued_date || null,
-      expiration_date: docForm.expiration_date,
-      issuing_state: docForm.issuing_state || null,
-      cdl_class: docForm.cdl_class || null,
-      endorsements: [] as string[],
-      restrictions: [] as string[],
-      status: docForm.status,
-    }
-    if (editingDoc) {
-      updateDocument(editingDoc.id, data)
-    } else {
-      addDocument(data)
-    }
-    setShowDocModal(false)
-  }
+  const recordForm = useForm<ComplianceRecordFormData>({
+    resolver: zodResolver(complianceRecordSchema) as never,
+  })
+  const docForm = useForm<DriverDocumentFormData>({
+    resolver: zodResolver(driverDocumentSchema) as never,
+  })
+  const reqForm = useForm<ComplianceRequirementFormData>({
+    resolver: zodResolver(complianceRequirementSchema) as never,
+  })
 
   if (loading.compliance) return <LoadingSpinner />
 
@@ -168,6 +84,11 @@ export function CompliancePage() {
     return matchesSearch
   })
 
+  const filteredReqs = complianceRequirements.filter(r => {
+    return !search || r.name.toLowerCase().includes(search.toLowerCase()) ||
+      r.regulatory_body.toLowerCase().includes(search.toLowerCase())
+  })
+
   const now = new Date()
   const expiredDocs = documents.filter(d => new Date(d.expiration_date) <= now)
   const expiringDocs = documents.filter(d => {
@@ -176,19 +97,145 @@ export function CompliancePage() {
   })
   const validDocs = documents.filter(d => new Date(d.expiration_date) > new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000))
 
+  const openEditRecord = (record: DriverCompliance) => {
+    setEditingRecord(record)
+    recordForm.reset({
+      status: record.status,
+      completed_date: record.completed_date ?? '',
+      hours_completed: record.hours_completed ?? null,
+      notes: record.notes ?? '',
+    })
+  }
+
+  const handleRecordSubmit = recordForm.handleSubmit(async (data: ComplianceRecordFormData) => {
+    if (!editingRecord) return
+    setSubmitting(true)
+    try {
+      await updateComplianceRecord(editingRecord.id, data)
+      toast.success('Compliance record updated')
+      setEditingRecord(null)
+    } catch { toast.error('Failed to update record') }
+    finally { setSubmitting(false) }
+  })
+
+  const openCreateDoc = () => {
+    setEditingDoc(null)
+    docForm.reset({
+      user_id: '', document_type: 'CDL' as never,
+      document_number: '', issued_date: '', expiration_date: '',
+      issuing_state: '', cdl_class: '', endorsements: [], restrictions: [],
+    })
+    setShowDocModal(true)
+  }
+
+  const openEditDoc = (doc: DriverDocument) => {
+    setEditingDoc(doc)
+    docForm.reset({
+      user_id: doc.user_id,
+      document_type: doc.document_type as never,
+      document_number: doc.document_number ?? '',
+      issued_date: doc.issued_date ?? '',
+      expiration_date: doc.expiration_date,
+      issuing_state: doc.issuing_state ?? '',
+      cdl_class: doc.cdl_class ?? '',
+      endorsements: doc.endorsements ?? [],
+      restrictions: doc.restrictions ?? [],
+    })
+    setShowDocModal(true)
+  }
+
+  const handleDocSubmit = docForm.handleSubmit(async (data: DriverDocumentFormData) => {
+    if (!user?.fleet_id) return
+    setSubmitting(true)
+    try {
+      if (editingDoc) {
+        await updateDocument(editingDoc.id, data)
+        toast.success('Document updated')
+      } else {
+        await createDocument(user.fleet_id, data)
+        toast.success('Document created')
+      }
+      setShowDocModal(false)
+    } catch { toast.error('Failed to save document') }
+    finally { setSubmitting(false) }
+  })
+
+  const handleDeleteDoc = async () => {
+    if (!deletingDoc) return
+    setSubmitting(true)
+    try {
+      await deleteDocument(deletingDoc.id)
+      toast.success('Document deleted')
+      setDeletingDoc(null)
+    } catch { toast.error('Failed to delete document') }
+    finally { setSubmitting(false) }
+  }
+
+  const openCreateReq = () => {
+    setEditingReq(null)
+    reqForm.reset({
+      name: '', description: '', regulatory_body: '',
+      required_hours: null, renewal_period: null,
+      applies_to: [], is_active: true, alert_days: [30, 60, 90],
+    })
+    setShowReqModal(true)
+  }
+
+  const openEditReq = (req: ComplianceRequirement) => {
+    setEditingReq(req)
+    reqForm.reset({
+      name: req.name, description: req.description ?? '',
+      regulatory_body: req.regulatory_body,
+      required_hours: req.required_hours ?? null,
+      renewal_period: req.renewal_period ?? null,
+      applies_to: req.applies_to ?? [],
+      is_active: req.is_active,
+      alert_days: req.alert_days ?? [30, 60, 90],
+    })
+    setShowReqModal(true)
+  }
+
+  const handleReqSubmit = reqForm.handleSubmit(async (data: ComplianceRequirementFormData) => {
+    if (!user?.fleet_id) return
+    setSubmitting(true)
+    try {
+      if (editingReq) {
+        await updateRequirement(editingReq.id, data)
+        toast.success('Requirement updated')
+      } else {
+        await createRequirement(user.fleet_id, data)
+        toast.success('Requirement created')
+      }
+      setShowReqModal(false)
+    } catch { toast.error('Failed to save requirement') }
+    finally { setSubmitting(false) }
+  })
+
+  const drivers = profiles.filter(p => p.role === 'DRIVER')
+
+  const tabs: { key: Tab; label: string }[] = [
+    { key: 'compliance', label: 'Compliance Records' },
+    { key: 'documents', label: 'Driver Documents' },
+    { key: 'requirements', label: 'Requirements' },
+  ]
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Compliance & Documents</h1>
           <p className="text-sm text-gray-500 mt-1">Track driver certifications, DOT compliance, and document expirations</p>
         </div>
-        <button
-          onClick={tab === 'compliance' ? openAddComp : openAddDoc}
-          className="btn-primary"
-        >
-          <Plus size={16} /> {tab === 'compliance' ? 'Add Record' : 'Add Document'}
-        </button>
+        {canManageCompliance && tab === 'documents' && (
+          <button onClick={openCreateDoc} className="btn-primary flex items-center gap-2">
+            <Plus size={16} /> Add Document
+          </button>
+        )}
+        {isAdmin && tab === 'requirements' && (
+          <button onClick={openCreateReq} className="btn-primary flex items-center gap-2">
+            <Plus size={16} /> Add Requirement
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -218,39 +265,54 @@ export function CompliancePage() {
       <div className="card">
         <div className="px-5 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5">
-            <button onClick={() => setTab('compliance')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${tab === 'compliance' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-              Compliance Records
-            </button>
-            <button onClick={() => setTab('documents')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${tab === 'documents' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-              Driver Documents
-            </button>
+            {tabs.map(t => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${tab === t.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
           <div className="flex-1" />
           <div className="flex items-center gap-2">
             <div className="relative">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input type="text" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} className="input-field pl-9 w-48" />
+              <input
+                type="text"
+                placeholder="Search..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="input-field pl-9 w-48"
+              />
             </div>
             {tab === 'compliance' && (
               <div className="relative">
                 <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as ComplianceStatus | '')} className="input-field pl-9 w-40 appearance-none">
+                <select
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value as ComplianceStatus | '')}
+                  className="input-field pl-9 w-40 appearance-none"
+                >
                   <option value="">All Status</option>
-                  <option value="COMPLIANT">Compliant</option>
-                  <option value="EXPIRING_SOON">Expiring Soon</option>
-                  <option value="EXPIRED">Expired</option>
-                  <option value="IN_PROGRESS">In Progress</option>
-                  <option value="NOT_STARTED">Not Started</option>
+                  {COMPLIANCE_STATUSES.map(s => (
+                    <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+                  ))}
                 </select>
               </div>
             )}
           </div>
         </div>
 
-        {tab === 'compliance' ? (
+        {tab === 'compliance' && (
           <div className="overflow-x-auto">
             {filteredCompliance.length === 0 ? (
-              <EmptyState icon={<ShieldCheck size={28} />} title="No compliance records" description="Compliance records will appear here once drivers are assigned requirements" action={<button onClick={openAddComp} className="btn-primary text-sm"><Plus size={14} /> Add Record</button>} />
+              <EmptyState
+                icon={<ShieldCheck size={28} />}
+                title="No compliance records"
+                description="Compliance records will appear here once drivers are assigned requirements"
+              />
             ) : (
               <table className="w-full">
                 <thead>
@@ -260,7 +322,7 @@ export function CompliancePage() {
                     <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Status</th>
                     <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Expiration</th>
                     <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Verified</th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Actions</th>
+                    {canManageCompliance && <th className="text-right text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -270,22 +332,30 @@ export function CompliancePage() {
                       <td className="px-5 py-3.5 text-sm text-gray-600">{c.compliance_requirements?.name ?? '-'}</td>
                       <td className="px-5 py-3.5"><ComplianceBadge status={c.status} /></td>
                       <td className="px-5 py-3.5 text-sm text-gray-600">{c.expiration_date ? new Date(c.expiration_date).toLocaleDateString() : '-'}</td>
-                      <td className="px-5 py-3.5 text-sm text-gray-600">
-                        {c.verified_by ? profiles.find(p => p.id === c.verified_by)?.name ?? 'Verified' : 'Pending'}
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <button onClick={() => openEditComp(c)} className="p-1.5 text-gray-400 hover:text-baldor-600 hover:bg-baldor-50 rounded-lg transition-colors"><Pencil size={15} /></button>
-                      </td>
+                      <td className="px-5 py-3.5 text-sm text-gray-600">{c.verified_by ?? 'Pending'}</td>
+                      {canManageCompliance && (
+                        <td className="px-5 py-3.5 text-right">
+                          <button onClick={() => openEditRecord(c)} className="p-1.5 text-gray-400 hover:text-baldor-600 hover:bg-baldor-50 rounded-lg transition-colors">
+                            <Pencil size={15} />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
               </table>
             )}
           </div>
-        ) : (
+        )}
+
+        {tab === 'documents' && (
           <div className="overflow-x-auto">
             {filteredDocs.length === 0 ? (
-              <EmptyState icon={<FileText size={28} />} title="No documents" description="Driver documents will appear here once uploaded" action={<button onClick={openAddDoc} className="btn-primary text-sm"><Plus size={14} /> Add Document</button>} />
+              <EmptyState
+                icon={<FileText size={28} />}
+                title="No documents"
+                description="Driver documents will appear here once uploaded"
+              />
             ) : (
               <table className="w-full">
                 <thead>
@@ -295,7 +365,7 @@ export function CompliancePage() {
                     <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Number</th>
                     <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Expiration</th>
                     <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Status</th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Actions</th>
+                    {canManageCompliance && <th className="text-right text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -309,9 +379,18 @@ export function CompliancePage() {
                         <td className="px-5 py-3.5 text-sm text-gray-600">{d.document_number ?? '-'}</td>
                         <td className="px-5 py-3.5 text-sm text-gray-600">{new Date(d.expiration_date).toLocaleDateString()}</td>
                         <td className="px-5 py-3.5"><ComplianceBadge status={docStatus} /></td>
-                        <td className="px-5 py-3.5">
-                          <button onClick={() => openEditDoc(d)} className="p-1.5 text-gray-400 hover:text-baldor-600 hover:bg-baldor-50 rounded-lg transition-colors"><Pencil size={15} /></button>
-                        </td>
+                        {canManageCompliance && (
+                          <td className="px-5 py-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button onClick={() => openEditDoc(d)} className="p-1.5 text-gray-400 hover:text-baldor-600 hover:bg-baldor-50 rounded-lg transition-colors">
+                                <Pencil size={15} />
+                              </button>
+                              <button onClick={() => setDeletingDoc(d)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     )
                   })}
@@ -320,50 +399,232 @@ export function CompliancePage() {
             )}
           </div>
         )}
+
+        {tab === 'requirements' && (
+          <div className="overflow-x-auto">
+            {filteredReqs.length === 0 ? (
+              <EmptyState
+                icon={<ClipboardList size={28} />}
+                title="No requirements"
+                description="Compliance requirements will appear here once created"
+              />
+            ) : (
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Name</th>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Regulatory Body</th>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Hours</th>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Renewal</th>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Active</th>
+                    {isAdmin && <th className="text-right text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">Actions</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {filteredReqs.map(r => (
+                    <tr key={r.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-3.5 text-sm font-medium text-gray-900">{r.name}</td>
+                      <td className="px-5 py-3.5 text-sm text-gray-600">{r.regulatory_body}</td>
+                      <td className="px-5 py-3.5 text-sm text-gray-600">{r.required_hours ?? '-'}</td>
+                      <td className="px-5 py-3.5 text-sm text-gray-600">{r.renewal_period ? `${r.renewal_period} months` : '-'}</td>
+                      <td className="px-5 py-3.5">
+                        <span className={`badge ${r.is_active ? 'badge-success' : 'badge-neutral'}`}>
+                          {r.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      {isAdmin && (
+                        <td className="px-5 py-3.5 text-right">
+                          <button onClick={() => openEditReq(r)} className="p-1.5 text-gray-400 hover:text-baldor-600 hover:bg-baldor-50 rounded-lg transition-colors">
+                            <Pencil size={15} />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
       </div>
 
-      <Modal isOpen={showCompModal} onClose={() => setShowCompModal(false)} title={editingComp ? 'Edit Compliance Record' : 'Add Compliance Record'} size="lg">
-        <form onSubmit={handleCompSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <SelectInput label="Driver" value={compForm.user_id} onChange={v => setCompForm(f => ({ ...f, user_id: v }))} options={driverOptions} placeholder="Select driver..." required />
-            <SelectInput label="Requirement" value={compForm.requirement_id} onChange={v => setCompForm(f => ({ ...f, requirement_id: v }))} options={reqOptions} placeholder="Select requirement..." required />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <SelectInput label="Status" value={compForm.status} onChange={v => setCompForm(f => ({ ...f, status: v as ComplianceStatus }))} options={statusOptions} required />
-            <TextInput label="Hours Completed" value={compForm.hours_completed} onChange={v => setCompForm(f => ({ ...f, hours_completed: v }))} type="number" placeholder="0" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <DateInput label="Completed Date" value={compForm.completed_date} onChange={v => setCompForm(f => ({ ...f, completed_date: v }))} />
-            <DateInput label="Expiration Date" value={compForm.expiration_date} onChange={v => setCompForm(f => ({ ...f, expiration_date: v }))} />
-          </div>
-          <TextArea label="Notes" value={compForm.notes} onChange={v => setCompForm(f => ({ ...f, notes: v }))} placeholder="Additional notes..." />
+      <Modal open={!!editingRecord} onClose={() => setEditingRecord(null)} title="Update Compliance Record">
+        <form onSubmit={handleRecordSubmit} className="space-y-5">
+          <FormSection title="Status Update">
+            <FormSelect
+              label="Status"
+              required
+              options={COMPLIANCE_STATUSES.map(s => ({ value: s, label: s.replace(/_/g, ' ') }))}
+              registration={recordForm.register('status')}
+              error={recordForm.formState.errors.status?.message}
+            />
+            <FormInput
+              label="Completed Date"
+              type="date"
+              registration={recordForm.register('completed_date')}
+              error={recordForm.formState.errors.completed_date?.message}
+            />
+            <FormInput
+              label="Hours Completed"
+              type="number"
+              registration={recordForm.register('hours_completed', { valueAsNumber: true })}
+              error={recordForm.formState.errors.hours_completed?.message}
+            />
+          </FormSection>
+          <FormTextarea
+            label="Notes"
+            registration={recordForm.register('notes')}
+            error={recordForm.formState.errors.notes?.message}
+            placeholder="Add any relevant notes..."
+          />
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-            <button type="button" onClick={() => setShowCompModal(false)} className="btn-secondary">Cancel</button>
-            <button type="submit" className="btn-primary">{editingComp ? 'Save Changes' : 'Add Record'}</button>
+            <button type="button" onClick={() => setEditingRecord(null)} className="btn-secondary">Cancel</button>
+            <button type="submit" disabled={submitting} className="btn-primary">
+              {submitting ? 'Saving...' : 'Update Record'}
+            </button>
           </div>
         </form>
       </Modal>
 
-      <Modal isOpen={showDocModal} onClose={() => setShowDocModal(false)} title={editingDoc ? 'Edit Document' : 'Add Document'} size="lg">
-        <form onSubmit={handleDocSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <SelectInput label="Driver" value={docForm.user_id} onChange={v => setDocForm(f => ({ ...f, user_id: v }))} options={driverOptions} placeholder="Select driver..." required />
-            <SelectInput label="Document Type" value={docForm.document_type} onChange={v => setDocForm(f => ({ ...f, document_type: v as DocumentType }))} options={docTypeOptions} required />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <TextInput label="Document Number" value={docForm.document_number} onChange={v => setDocForm(f => ({ ...f, document_number: v }))} placeholder="CDL-NY-12345" />
-            <TextInput label="Issuing State" value={docForm.issuing_state} onChange={v => setDocForm(f => ({ ...f, issuing_state: v }))} placeholder="NY" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <DateInput label="Issued Date" value={docForm.issued_date} onChange={v => setDocForm(f => ({ ...f, issued_date: v }))} />
-            <DateInput label="Expiration Date" value={docForm.expiration_date} onChange={v => setDocForm(f => ({ ...f, expiration_date: v }))} required />
-          </div>
-          {docForm.document_type === 'CDL' && (
-            <TextInput label="CDL Class" value={docForm.cdl_class} onChange={v => setDocForm(f => ({ ...f, cdl_class: v }))} placeholder="A, B, or C" />
-          )}
+      <Modal open={showDocModal} onClose={() => setShowDocModal(false)} title={editingDoc ? 'Edit Document' : 'Add Document'} size="lg">
+        <form onSubmit={handleDocSubmit} className="space-y-5">
+          <FormSection title="Document Information">
+            <FormSelect
+              label="Driver"
+              required
+              options={drivers.map(d => ({ value: d.id, label: d.name ?? d.email }))}
+              registration={docForm.register('user_id')}
+              error={docForm.formState.errors.user_id?.message}
+              placeholder="Select driver"
+            />
+            <FormSelect
+              label="Document Type"
+              required
+              options={DOCUMENT_TYPES.map(t => ({ value: t, label: t.replace(/_/g, ' ') }))}
+              registration={docForm.register('document_type')}
+              error={docForm.formState.errors.document_type?.message}
+            />
+            <FormInput
+              label="Document Number"
+              registration={docForm.register('document_number')}
+              error={docForm.formState.errors.document_number?.message}
+              placeholder="e.g., D12345678"
+            />
+            <FormInput
+              label="Issuing State"
+              registration={docForm.register('issuing_state')}
+              error={docForm.formState.errors.issuing_state?.message}
+              placeholder="e.g., NY"
+            />
+          </FormSection>
+          <FormSection title="Dates">
+            <FormInput
+              label="Issued Date"
+              type="date"
+              registration={docForm.register('issued_date')}
+              error={docForm.formState.errors.issued_date?.message}
+            />
+            <FormInput
+              label="Expiration Date"
+              type="date"
+              required
+              registration={docForm.register('expiration_date')}
+              error={docForm.formState.errors.expiration_date?.message}
+            />
+          </FormSection>
+          <FormSection title="CDL Details">
+            <FormInput
+              label="CDL Class"
+              registration={docForm.register('cdl_class')}
+              error={docForm.formState.errors.cdl_class?.message}
+              placeholder="e.g., A, B, C"
+            />
+          </FormSection>
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
             <button type="button" onClick={() => setShowDocModal(false)} className="btn-secondary">Cancel</button>
-            <button type="submit" className="btn-primary">{editingDoc ? 'Save Changes' : 'Add Document'}</button>
+            <button type="submit" disabled={submitting} className="btn-primary">
+              {submitting ? 'Saving...' : editingDoc ? 'Update Document' : 'Add Document'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <ConfirmDialog
+        open={!!deletingDoc}
+        onClose={() => setDeletingDoc(null)}
+        onConfirm={handleDeleteDoc}
+        title="Delete Document"
+        message={`Are you sure you want to delete this ${deletingDoc?.document_type.replace(/_/g, ' ')} document? This action cannot be undone.`}
+        loading={submitting}
+      />
+
+      <Modal open={showReqModal} onClose={() => setShowReqModal(false)} title={editingReq ? 'Edit Requirement' : 'Add Requirement'} size="lg">
+        <form onSubmit={handleReqSubmit} className="space-y-5">
+          <FormSection title="Requirement Details">
+            <FormInput
+              label="Name"
+              required
+              registration={reqForm.register('name')}
+              error={reqForm.formState.errors.name?.message}
+              placeholder="e.g., DOT Physical"
+            />
+            <FormInput
+              label="Regulatory Body"
+              required
+              registration={reqForm.register('regulatory_body')}
+              error={reqForm.formState.errors.regulatory_body?.message}
+              placeholder="e.g., FMCSA"
+            />
+            <FormInput
+              label="Required Hours"
+              type="number"
+              registration={reqForm.register('required_hours', { valueAsNumber: true })}
+              error={reqForm.formState.errors.required_hours?.message}
+            />
+            <FormInput
+              label="Renewal Period (months)"
+              type="number"
+              registration={reqForm.register('renewal_period', { valueAsNumber: true })}
+              error={reqForm.formState.errors.renewal_period?.message}
+            />
+          </FormSection>
+          <FormTextarea
+            label="Description"
+            registration={reqForm.register('description')}
+            error={reqForm.formState.errors.description?.message}
+            placeholder="Describe this compliance requirement..."
+          />
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="req-active" className="rounded border-gray-300" {...reqForm.register('is_active')} />
+            <label htmlFor="req-active" className="text-sm text-gray-700">Active</label>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Applies To</label>
+            <div className="flex flex-wrap gap-2">
+              {USER_ROLES.map(role => (
+                <label key={role} className="flex items-center gap-1.5 text-sm text-gray-600">
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300"
+                    checked={reqForm.watch('applies_to')?.includes(role) ?? false}
+                    onChange={e => {
+                      const current = reqForm.getValues('applies_to') ?? []
+                      reqForm.setValue('applies_to', e.target.checked
+                        ? [...current, role]
+                        : current.filter(r => r !== role)
+                      )
+                    }}
+                  />
+                  {role.replace(/_/g, ' ')}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+            <button type="button" onClick={() => setShowReqModal(false)} className="btn-secondary">Cancel</button>
+            <button type="submit" disabled={submitting} className="btn-primary">
+              {submitting ? 'Saving...' : editingReq ? 'Update Requirement' : 'Add Requirement'}
+            </button>
           </div>
         </form>
       </Modal>

@@ -80,7 +80,7 @@ class SmsService {
         body: formData.toString(),
       });
 
-      const result = await response.json();
+      const result = await response.json() as { sid?: string; message?: string };
 
       if (response.ok) {
         return {

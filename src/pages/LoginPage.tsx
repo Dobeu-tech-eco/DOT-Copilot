@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { Truck, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { z } from 'zod'
@@ -30,7 +30,7 @@ export function LoginPage() {
 
     try {
       loginSchema.parse({ email, password })
-    } catch (err) {
+    } catch (err: unknown) {
       if (err instanceof z.ZodError) {
         setValidationError(err.issues[0].message)
         return
@@ -145,7 +145,14 @@ export function LoginPage() {
             </button>
           </form>
 
-          <p className="mt-8 text-center text-xs text-slate-500">
+          <p className="mt-6 text-center text-sm text-slate-400">
+            Don't have an account?{' '}
+            <Link to="/register" className="text-baldor-400 hover:text-baldor-300 font-medium transition-colors">
+              Create one
+            </Link>
+          </p>
+
+          <p className="mt-6 text-center text-xs text-slate-500">
             Protected by DOT Copilot &middot; Baldor Food Company
           </p>
         </div>

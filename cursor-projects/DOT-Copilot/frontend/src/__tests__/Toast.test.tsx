@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { Toast } from '../components/Toast';
 
 describe('Toast Component', () => {
-  let onCloseMock: ReturnType<typeof vi.fn>;
+  let onCloseMock: () => void;
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -181,11 +181,11 @@ describe('Toast Component', () => {
 
   describe('Edge Cases - Null/Undefined/Empty', () => {
     it('handles empty string message', () => {
-      render(<Toast message="" onClose={onCloseMock} />);
+      const { container } = render(<Toast message="" onClose={onCloseMock} />);
       
       const toast = screen.getByRole('alert');
       expect(toast).toBeInTheDocument();
-      expect(screen.getByText('')).toBeInTheDocument();
+      expect(container.querySelector('.toast-message')).toBeInTheDocument();
     });
 
     it('handles zero duration', () => {
@@ -333,7 +333,7 @@ describe('Toast Component', () => {
       const onClose1 = vi.fn();
       const onClose2 = vi.fn();
       
-      const { container } = render(
+      render(
         <>
           <Toast message="Toast 1" duration={2000} onClose={onClose1} />
           <Toast message="Toast 2" duration={4000} onClose={onClose2} />

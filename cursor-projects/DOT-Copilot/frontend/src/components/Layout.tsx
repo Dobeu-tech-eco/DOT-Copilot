@@ -29,8 +29,31 @@ export const Layout: React.FC = () => {
   }
 
   const handleLogout = async () => {
-    await logout();
-    navigate('/');
+    try {
+      await logout();
+      navigate('/');
+    } catch {
+      // logout errors are handled gracefully; user remains on current page
+    }
+  };
+
+  const handleNavClick = (path: string) => {
+    try {
+      navigate(path);
+    } catch {
+      // navigation errors handled gracefully
+    }
+  };
+
+  const handleNavKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, path: string) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      try {
+        navigate(path);
+      } catch {
+        // navigation errors handled gracefully
+      }
+    }
   };
 
   const filteredNavItems = navItems.filter(item => {
@@ -49,7 +72,8 @@ export const Layout: React.FC = () => {
           {filteredNavItems.map((item) => (
             <button
               key={item.path}
-              onClick={() => navigate(item.path)}
+              onClick={() => handleNavClick(item.path)}
+              onKeyDown={(e) => handleNavKeyDown(e, item.path)}
               className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
             >
               <span className="nav-icon">{item.icon}</span>

@@ -2,19 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useAppStore } from '../store/appStore'
-import {
-  LayoutDashboard,
-  Users,
-  BookOpen,
-  ShieldCheck,
-  Truck,
-  Bell,
-  LogOut,
-  Menu,
-  X,
-  ChevronDown,
-  Settings,
-} from 'lucide-react'
+import { LayoutDashboard, Users, BookOpen, ShieldCheck, Truck, Bell, LogOut, Menu, X, ChevronDown, ChartBar as BarChart2, Settings } from 'lucide-react'
 import type { UserRole } from '../types/database'
 
 interface NavItem {
@@ -30,7 +18,8 @@ const navItems: NavItem[] = [
   { path: '/training', label: 'Training', icon: <BookOpen size={20} />, roles: ['ADMIN', 'BRANCH_MANAGER', 'SUPERVISOR', 'DRIVER_COACH', 'DRIVER'] },
   { path: '/vehicles', label: 'Fleet Vehicles', icon: <Truck size={20} />, roles: ['ADMIN', 'BRANCH_MANAGER', 'SUPERVISOR'] },
   { path: '/users', label: 'User Management', icon: <Users size={20} />, roles: ['ADMIN', 'BRANCH_MANAGER'] },
-  { path: '/settings', label: 'Settings', icon: <Settings size={20} />, roles: ['ADMIN'] },
+  { path: '/reports', label: 'Reports', icon: <BarChart2 size={20} />, roles: ['ADMIN', 'BRANCH_MANAGER', 'SUPERVISOR'] },
+  { path: '/settings', label: 'Settings', icon: <Settings size={20} />, roles: ['ADMIN', 'BRANCH_MANAGER', 'SUPERVISOR', 'DRIVER_COACH', 'DRIVER'] },
 ]
 
 export function Layout() {
@@ -139,6 +128,13 @@ export function Layout() {
 
             {userMenuOpen && (
               <div className="absolute bottom-full left-0 right-0 mb-1 bg-slate-800 rounded-lg border border-slate-700 shadow-lg overflow-hidden animate-fade-in">
+                <button
+                  onClick={() => { handleNav('/settings'); setUserMenuOpen(false) }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
+                >
+                  <Settings size={16} />
+                  Settings
+                </button>
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
