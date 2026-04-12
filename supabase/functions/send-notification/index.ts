@@ -259,7 +259,7 @@ Deno.serve(async (req: Request) => {
             sendError = body.message || "Email send failed"
           }
         } catch (e) {
-          sendError = String(e)
+          sendError = "Delivery failed"
         }
       } else {
         sendError = "RESEND_API_KEY not configured"
@@ -294,7 +294,7 @@ Deno.serve(async (req: Request) => {
             sendError = errBody.message || "SMS send failed"
           }
         } catch (e) {
-          sendError = String(e)
+          sendError = "Delivery failed"
         }
       } else {
         sendError = "Twilio credentials not configured"
@@ -347,7 +347,7 @@ Deno.serve(async (req: Request) => {
   } catch (err) {
     console.error("send-notification error:", err)
     return new Response(
-      JSON.stringify({ error: String(err) }),
+      JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     )
   }
