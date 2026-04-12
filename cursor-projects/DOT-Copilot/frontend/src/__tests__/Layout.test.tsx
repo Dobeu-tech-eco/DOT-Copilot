@@ -282,11 +282,10 @@ describe('Layout Component', () => {
       );
 
       const logoutButton = screen.getByRole('button', { name: /logout/i });
-      
-      await expect(async () => {
-        fireEvent.click(logoutButton);
-        await waitFor(() => expect(mockLogout).toHaveBeenCalled());
-      }).rejects.toThrow();
+      fireEvent.click(logoutButton);
+
+      await waitFor(() => expect(mockLogout).toHaveBeenCalled());
+      expect(mockNavigate).not.toHaveBeenCalled();
     });
   });
 
@@ -333,16 +332,16 @@ describe('Layout Component', () => {
       });
 
       const { rerender } = render(
-        <MemoryRouter initialEntries={['/driver-dashboard']}>
+        <MemoryRouter key="dashboard" initialEntries={['/driver-dashboard']}>
           <Layout />
         </MemoryRouter>
       );
 
-      let dashboardButton = screen.getByText('Dashboard').closest('button');
+      const dashboardButton = screen.getByText('Dashboard').closest('button');
       expect(dashboardButton).toHaveClass('active');
 
       rerender(
-        <MemoryRouter initialEntries={['/training-builder']}>
+        <MemoryRouter key="training" initialEntries={['/training-builder']}>
           <Layout />
         </MemoryRouter>
       );
@@ -654,10 +653,14 @@ describe('Layout Component', () => {
       );
 
       const dashboardButton = screen.getByText('Dashboard').closest('button');
-      
+      expect(dashboardButton).toBeInTheDocument();
+
+      // Clicking a nav item that throws during navigation should not crash the component
       expect(() => {
         fireEvent.click(dashboardButton!);
-      }).toThrow('Navigation failed');
+      }).not.toThrow();
+
+      expect(mockNavigate).toHaveBeenCalledWith('/driver-dashboard');
     });
   });
 });

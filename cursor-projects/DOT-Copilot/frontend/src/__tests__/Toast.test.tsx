@@ -181,11 +181,11 @@ describe('Toast Component', () => {
 
   describe('Edge Cases - Null/Undefined/Empty', () => {
     it('handles empty string message', () => {
-      render(<Toast message="" onClose={onCloseMock} />);
+      const { container } = render(<Toast message="" onClose={onCloseMock} />);
       
       const toast = screen.getByRole('alert');
       expect(toast).toBeInTheDocument();
-      expect(screen.getByText('')).toBeInTheDocument();
+      expect(container.querySelector('.toast-message')).toBeInTheDocument();
     });
 
     it('handles zero duration', () => {

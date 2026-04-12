@@ -8,6 +8,13 @@ export interface ToastProps {
   onClose: () => void;
 }
 
+const ICONS: Record<string, string> = {
+  success: '✓',
+  error: '✕',
+  warning: '⚠',
+  info: 'ℹ',
+};
+
 export const Toast: React.FC<ToastProps> = ({ 
   message, 
   type = 'info', 
@@ -22,18 +29,25 @@ export const Toast: React.FC<ToastProps> = ({
     return () => clearTimeout(timer);
   }, [duration, onClose]);
 
+  const handleCloseKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onClose();
+    }
+  };
+
   return (
     <div className={`toast toast-${type}`} role="alert">
       <div className="toast-content">
-        <span className="toast-icon">
-          {type === 'success' && '✓'}
-          {type === 'error' && '✕'}
-          {type === 'warning' && '⚠'}
-          {type === 'info' && 'ℹ'}
-        </span>
+        <span className="toast-icon">{ICONS[type] ?? ''}</span>
         <span className="toast-message">{message}</span>
       </div>
-      <button className="toast-close" onClick={onClose} aria-label="Close">
+      <button
+        className="toast-close"
+        onClick={onClose}
+        onKeyDown={handleCloseKeyDown}
+        aria-label="Close"
+      >
         ×
       </button>
     </div>
