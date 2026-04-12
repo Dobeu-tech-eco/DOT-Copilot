@@ -247,7 +247,7 @@ router.get('/fleet/summary', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'
         },
       }),
       prisma.completionRecord.count({
-        where: { fleetId: user.fleetId },
+        where: { fleetId: user.fleetId ?? undefined },
       }),
       prisma.completionRecord.aggregate({
         where: {
@@ -279,7 +279,7 @@ router.get('/fleet/summary', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'
     // Get completion rate
     const [assignedCount, completedCount] = await Promise.all([
       prisma.assignment.count({
-        where: { fleetId: user.fleetId },
+        where: { fleetId: user.fleetId ?? undefined },
       }),
       prisma.assignment.count({
         where: {
