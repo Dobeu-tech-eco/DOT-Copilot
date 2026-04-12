@@ -12,8 +12,8 @@
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@sentry/react": "^10.47.0",
-    "@supabase/supabase-js": "^2.49.1",
-    "lucide-react": "^1.7.0",
+    "@supabase/supabase-js": "^2.101.1",
+    "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.71.2",
