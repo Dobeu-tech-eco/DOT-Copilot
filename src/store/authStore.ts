@@ -11,6 +11,7 @@ interface AuthState {
   initialized: boolean
   initialize: () => Promise<void>
   login: (email: string, password: string) => Promise<void>
+  register: (email: string, password: string, name: string) => Promise<void>
   logout: () => Promise<void>
   clearError: () => void
 }
@@ -102,6 +103,36 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
       })
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Login failed'
+      set({ error: msg, loading: false })
+      throw error
+    }
+  },
+
+  register: async (email: string, password: string, name: string) => {
+    set({ loading: true, error: null })
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { name } },
+      })
+      if (error) throw error
+      if (!data.user) throw new Error('Registration failed')
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .maybeSingle()
+
+      set({
+        user: profile,
+        session: data.session ? { access_token: data.session.access_token } : null,
+        isAuthenticated: !!profile,
+        loading: false,
+      })
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Registration failed'
       set({ error: msg, loading: false })
       throw error
     }

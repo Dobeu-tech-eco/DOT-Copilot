@@ -1,18 +1,22 @@
 import { create } from 'zustand'
-import { api } from '../lib/api'
+import { supabase } from '../lib/supabase'
+import * as vehiclesSvc from '../services/vehicles.service'
+import * as trainingsSvc from '../services/training.service'
+import * as complianceSvc from '../services/compliance.service'
+import * as profilesSvc from '../services/profiles.service'
+import * as notificationsSvc from '../services/notifications.service'
+import * as modulesSvc from '../services/modules.service'
 import type {
-  Profile,
-  Fleet,
-  TrainingProgram,
-  Assignment,
-  DriverCompliance,
-  DriverDocument,
-  Vehicle,
-  Notification,
-  CompletionRecord,
-  DriverStats,
-  ComplianceRequirement,
+  Profile, Fleet, TrainingProgram, Assignment,
+  DriverCompliance, DriverDocument, Vehicle, Notification,
+  CompletionRecord, DriverStats, ComplianceRequirement,
+  Module, Lesson,
 } from '../types/database'
+import type { VehicleFormData } from '../schemas/vehicle.schema'
+import type { TrainingProgramFormData, AssignmentFormData } from '../schemas/training.schema'
+import type { DriverDocumentFormData, ComplianceRecordFormData, ComplianceRequirementFormData } from '../schemas/compliance.schema'
+import type { ProfileFormData, CreateUserFormData } from '../schemas/profile.schema'
+import type { ModuleFormData, LessonFormData } from '../schemas/module.schema'
 
 interface DashboardStats {
   totalDrivers: number
@@ -37,6 +41,8 @@ interface AppState {
   completionRecords: CompletionRecord[]
   driverStats: DriverStats[]
   complianceRequirements: ComplianceRequirement[]
+  modules: Module[]
+  lessons: Record<string, Lesson[]>
   dashboardStats: DashboardStats | null
   loading: Record<string, boolean>
 
@@ -50,52 +56,43 @@ interface AppState {
   fetchNotifications: (userId: string) => Promise<void>
   fetchDashboardStats: (fleetId: string) => Promise<void>
   fetchComplianceRequirements: (fleetId: string) => Promise<void>
-  markNotificationRead: (id: string) => Promise<void>
+  fetchModules: (programId: string) => Promise<void>
+  fetchLessons: (moduleId: string) => Promise<void>
 
-  addProfile: (profile: Omit<Profile, 'id' | 'created_at' | 'updated_at'>) => Promise<void>
-  updateProfile: (id: string, updates: Partial<Profile>) => Promise<void>
-  deleteProfile: (id: string) => Promise<void>
-
-  addVehicle: (vehicle: Omit<Vehicle, 'id' | 'created_at'>) => Promise<void>
-  updateVehicle: (id: string, updates: Partial<Vehicle>) => Promise<void>
+  createVehicle: (fleetId: string, data: VehicleFormData) => Promise<void>
+  updateVehicle: (id: string, data: Partial<VehicleFormData>) => Promise<void>
   deleteVehicle: (id: string) => Promise<void>
 
-  updateFleet: (updates: Partial<Fleet>) => Promise<void>
+  createTrainingProgram: (fleetId: string, data: TrainingProgramFormData) => Promise<void>
+  updateTrainingProgram: (id: string, data: Partial<TrainingProgramFormData>) => Promise<void>
+  deleteTrainingProgram: (id: string) => Promise<void>
+  createAssignment: (fleetId: string, assignedBy: string, data: AssignmentFormData) => Promise<void>
+  deleteAssignment: (id: string) => Promise<void>
 
-  addComplianceRecord: (record: Omit<DriverCompliance, 'id' | 'created_at'>) => Promise<void>
-  updateComplianceRecord: (id: string, updates: Partial<DriverCompliance>) => Promise<void>
+  updateComplianceRecord: (id: string, data: ComplianceRecordFormData) => Promise<void>
+  createDocument: (fleetId: string, data: DriverDocumentFormData) => Promise<void>
+  updateDocument: (id: string, data: Partial<DriverDocumentFormData>) => Promise<void>
+  deleteDocument: (id: string) => Promise<void>
+  createRequirement: (fleetId: string, data: ComplianceRequirementFormData) => Promise<void>
+  updateRequirement: (id: string, data: Partial<ComplianceRequirementFormData>) => Promise<void>
 
-  addDocument: (doc: Omit<DriverDocument, 'id' | 'created_at'>) => Promise<void>
-  updateDocument: (id: string, updates: Partial<DriverDocument>) => Promise<void>
+  createModule: (fleetId: string, programId: string, data: ModuleFormData) => Promise<void>
+  updateModule: (id: string, data: Partial<ModuleFormData>) => Promise<void>
+  deleteModule: (id: string) => Promise<void>
+  createLesson: (fleetId: string, moduleId: string, data: LessonFormData) => Promise<void>
+  updateLesson: (id: string, moduleId: string, data: Partial<LessonFormData>) => Promise<void>
+  deleteLesson: (id: string, moduleId: string) => Promise<void>
 
-  addTrainingProgram: (program: Omit<TrainingProgram, 'id' | 'created_at' | 'updated_at'>) => Promise<void>
-  updateTrainingProgram: (id: string, updates: Partial<TrainingProgram>) => Promise<void>
+  updateProfile: (id: string, data: Partial<ProfileFormData>) => Promise<void>
+  updateNotificationPreferences: (id: string, prefs: { prefer_email?: boolean; prefer_sms?: boolean; prefer_push?: boolean }) => Promise<void>
+  updateFleetNotificationSettings: (id: string, settings: { enable_sms_notifications?: boolean; enable_push_notifications?: boolean }) => Promise<void>
+  toggleUserActive: (id: string, isActive: boolean) => Promise<void>
+  createUser: (fleetId: string, data: CreateUserFormData) => Promise<void>
 
-  addAssignment: (assignment: Omit<Assignment, 'id' | 'created_at'>) => Promise<void>
-  updateAssignment: (id: string, updates: Partial<Assignment>) => Promise<void>
-}
-
-function snakeToCamelProfile(u: any): Profile {
-  return {
-    id: u.id,
-    email: u.email,
-    name: u.name,
-    role: u.role,
-    fleet_id: u.fleet_id ?? u.fleetId ?? null,
-    location_id: u.location_id ?? u.locationId ?? null,
-    phone: u.phone ?? null,
-    preferred_language: u.preferred_language ?? u.preferredLanguage ?? 'en',
-    timezone: u.timezone ?? 'America/New_York',
-    prefer_email: u.prefer_email ?? u.preferEmail ?? true,
-    prefer_sms: u.prefer_sms ?? u.preferSms ?? false,
-    prefer_push: u.prefer_push ?? u.preferPush ?? true,
-    employee_id: u.employee_id ?? u.employeeId ?? null,
-    hire_date: u.hire_date ?? u.hireDate ?? null,
-    is_active: u.is_active ?? u.isActive ?? true,
-    last_login_at: u.last_login_at ?? u.lastLoginAt ?? null,
-    created_at: u.created_at ?? u.createdAt ?? '',
-    updated_at: u.updated_at ?? u.updatedAt ?? '',
-  }
+  markNotificationRead: (id: string) => Promise<void>
+  markAllNotificationsRead: (userId: string) => Promise<void>
+  deleteNotification: (id: string) => Promise<void>
+  sendNotification: (opts: import('../services/notifications.service').SendNotificationOptions) => Promise<{ sent: boolean; sendError: string | null }>
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -110,226 +107,108 @@ export const useAppStore = create<AppState>((set, get) => ({
   completionRecords: [],
   driverStats: [],
   complianceRequirements: [],
+  modules: [],
+  lessons: {},
   dashboardStats: null,
   loading: {},
 
-  fetchFleet: async (fleetId: string) => {
+  fetchFleet: async (fleetId) => {
     set(s => ({ loading: { ...s.loading, fleet: true } }))
-    try {
-      const res = await api.get<{ data: any }>(`/fleets/${fleetId}`)
-      const f = res.data
-      const fleet: Fleet = {
-        id: f.id,
-        company_name: f.company_name ?? f.companyName ?? '',
-        locations: f.locations ?? null,
-        cargo_type: f.cargo_type ?? f.cargoType ?? null,
-        cdl_status: f.cdl_status ?? f.cdlStatus ?? null,
-        vehicle_types: f.vehicle_types ?? f.vehicleTypes ?? null,
-        key_risk_areas: f.key_risk_areas ?? f.keyRiskAreas ?? null,
-        operation_type: f.operation_type ?? f.operationType ?? null,
-        states_of_operation: f.states_of_operation ?? f.statesOfOperation ?? null,
-        onboarding_completed: f.onboarding_completed ?? f.onboardingCompleted ?? false,
-        compliance_profile_configured: f.compliance_profile_configured ?? f.complianceProfileConfigured ?? false,
-        logo_url: f.logo_url ?? f.logoUrl ?? null,
-        primary_color: f.primary_color ?? f.primaryColor ?? null,
-        secondary_color: f.secondary_color ?? f.secondaryColor ?? null,
-        default_language: f.default_language ?? f.defaultLanguage ?? 'en',
-        created_at: f.created_at ?? f.createdAt ?? '',
-        updated_at: f.updated_at ?? f.updatedAt ?? '',
-      }
-      set(s => ({ fleet, loading: { ...s.loading, fleet: false } }))
-    } catch (e) {
-      console.error('fetchFleet error:', e)
-      set(s => ({ loading: { ...s.loading, fleet: false } }))
-    }
+    const { data } = await supabase.from('fleets').select('*').eq('id', fleetId).maybeSingle()
+    set(s => ({ fleet: data, loading: { ...s.loading, fleet: false } }))
   },
 
-  fetchProfiles: async (_fleetId: string) => {
+  fetchProfiles: async (fleetId) => {
     set(s => ({ loading: { ...s.loading, profiles: true } }))
-    try {
-      const res = await api.get<{ data: any[] }>(`/users?page=1&limit=500`)
-      const profiles = (res.data || []).map(snakeToCamelProfile)
-      set(s => ({ profiles, loading: { ...s.loading, profiles: false } }))
-    } catch (e) {
-      console.error('fetchProfiles error:', e)
-      set(s => ({ loading: { ...s.loading, profiles: false } }))
-    }
+    const data = await profilesSvc.getProfiles(fleetId)
+    set(s => ({ profiles: data ?? [], loading: { ...s.loading, profiles: false } }))
   },
 
-  fetchTrainingPrograms: async (_fleetId: string) => {
+  fetchTrainingPrograms: async (fleetId) => {
     set(s => ({ loading: { ...s.loading, trainingPrograms: true } }))
-    try {
-      const res = await api.get<{ data: any[] }>(`/training-programs?page=1&limit=500`)
-      const programs = (res.data || []).map((p: any) => ({
-        id: p.id,
-        program_name: p.program_name ?? p.programName ?? '',
-        description: p.description ?? null,
-        is_recommended: p.is_recommended ?? p.isRecommended ?? false,
-        fleet_id: p.fleet_id ?? p.fleetId ?? '',
-        is_template: p.is_template ?? p.isTemplate ?? false,
-        template_category: p.template_category ?? p.templateCategory ?? null,
-        estimated_duration: p.estimated_duration ?? p.estimatedDuration ?? null,
-        compliance_requirement_id: p.compliance_requirement_id ?? p.complianceRequirementId ?? null,
-        created_at: p.created_at ?? p.createdAt ?? '',
-        updated_at: p.updated_at ?? p.updatedAt ?? '',
-      }))
-      set(s => ({ trainingPrograms: programs, loading: { ...s.loading, trainingPrograms: false } }))
-    } catch (e) {
-      console.error('fetchTrainingPrograms error:', e)
-      set(s => ({ loading: { ...s.loading, trainingPrograms: false } }))
-    }
+    const data = await trainingsSvc.getTrainingPrograms(fleetId)
+    set(s => ({ trainingPrograms: data ?? [], loading: { ...s.loading, trainingPrograms: false } }))
   },
 
-  fetchAssignments: async (_fleetId: string) => {
+  fetchAssignments: async (fleetId) => {
     set(s => ({ loading: { ...s.loading, assignments: true } }))
-    try {
-      const res = await api.get<{ data: any[] }>(`/assignments?page=1&limit=500`)
-      const assignments = (res.data || []).map((a: any) => ({
-        id: a.id,
-        status: a.status,
-        due_date: a.due_date ?? a.dueDate ?? null,
-        assigned_date: a.assigned_date ?? a.assignedDate ?? '',
-        user_id: a.user_id ?? a.userId ?? '',
-        fleet_id: a.fleet_id ?? a.fleetId ?? '',
-        module_id: a.module_id ?? a.moduleId ?? null,
-        training_program_id: a.training_program_id ?? a.trainingProgramId ?? null,
-        assigned_by: a.assigned_by ?? a.assignedBy ?? null,
-        priority: a.priority ?? 'normal',
-        reminders_sent: a.reminders_sent ?? a.remindersSent ?? 0,
-        created_at: a.created_at ?? a.createdAt ?? '',
-        profiles: a.user ? snakeToCamelProfile(a.user) : undefined,
-        training_programs: a.trainingProgram ? {
-          id: a.trainingProgram.id,
-          program_name: a.trainingProgram.programName ?? a.trainingProgram.program_name ?? '',
-          description: a.trainingProgram.description ?? null,
-          is_recommended: a.trainingProgram.isRecommended ?? a.trainingProgram.is_recommended ?? false,
-          fleet_id: a.trainingProgram.fleetId ?? a.trainingProgram.fleet_id ?? '',
-          is_template: a.trainingProgram.isTemplate ?? a.trainingProgram.is_template ?? false,
-          template_category: a.trainingProgram.templateCategory ?? a.trainingProgram.template_category ?? null,
-          estimated_duration: a.trainingProgram.estimatedDuration ?? a.trainingProgram.estimated_duration ?? null,
-          compliance_requirement_id: a.trainingProgram.complianceRequirementId ?? a.trainingProgram.compliance_requirement_id ?? null,
-          created_at: a.trainingProgram.createdAt ?? a.trainingProgram.created_at ?? '',
-          updated_at: a.trainingProgram.updatedAt ?? a.trainingProgram.updated_at ?? '',
-        } : undefined,
-      }))
-      set(s => ({ assignments, loading: { ...s.loading, assignments: false } }))
-    } catch (e) {
-      console.error('fetchAssignments error:', e)
-      set(s => ({ loading: { ...s.loading, assignments: false } }))
-    }
+    const data = await trainingsSvc.getAssignments(fleetId)
+    set(s => ({ assignments: (data ?? []) as Assignment[], loading: { ...s.loading, assignments: false } }))
   },
 
-  fetchComplianceRecords: async (_fleetId: string) => {
+  fetchComplianceRecords: async (fleetId) => {
     set(s => ({ loading: { ...s.loading, compliance: true } }))
-    try {
-      const res = await api.get<{ data: any[] }>(`/compliance/drivers`)
-      set(s => ({ complianceRecords: res.data || [], loading: { ...s.loading, compliance: false } }))
-    } catch (e) {
-      console.error('fetchComplianceRecords error:', e)
-      set(s => ({ loading: { ...s.loading, compliance: false } }))
-    }
+    const data = await complianceSvc.getComplianceRecords(fleetId)
+    set(s => ({ complianceRecords: (data ?? []) as DriverCompliance[], loading: { ...s.loading, compliance: false } }))
   },
 
-  fetchDocuments: async (_fleetId: string) => {
+  fetchDocuments: async (fleetId) => {
     set(s => ({ loading: { ...s.loading, documents: true } }))
-    try {
-      const res = await api.get<{ data: any[] }>(`/documents`)
-      const docs = (res.data || []).map((d: any) => ({
-        id: d.id,
-        document_type: d.document_type ?? d.documentType ?? '',
-        document_number: d.document_number ?? d.documentNumber ?? null,
-        issued_date: d.issued_date ?? d.issuedDate ?? null,
-        expiration_date: d.expiration_date ?? d.expirationDate ?? '',
-        issuing_state: d.issuing_state ?? d.issuingState ?? null,
-        cdl_class: d.cdl_class ?? d.cdlClass ?? null,
-        endorsements: d.endorsements ?? [],
-        restrictions: d.restrictions ?? [],
-        status: d.status ?? 'valid',
-        user_id: d.user_id ?? d.userId ?? '',
-        fleet_id: d.fleet_id ?? d.fleetId ?? '',
-        created_at: d.created_at ?? d.createdAt ?? '',
-        profiles: d.user ? snakeToCamelProfile(d.user) : undefined,
-      }))
-      set(s => ({ documents: docs, loading: { ...s.loading, documents: false } }))
-    } catch (e) {
-      console.error('fetchDocuments error:', e)
-      set(s => ({ loading: { ...s.loading, documents: false } }))
-    }
+    const data = await complianceSvc.getDocuments(fleetId)
+    set(s => ({ documents: (data ?? []) as DriverDocument[], loading: { ...s.loading, documents: false } }))
   },
 
-  fetchVehicles: async (_fleetId: string) => {
+  fetchVehicles: async (fleetId) => {
     set(s => ({ loading: { ...s.loading, vehicles: true } }))
-    // API endpoint not yet implemented
-    set(s => ({ vehicles: [], loading: { ...s.loading, vehicles: false } }))
+    const data = await vehiclesSvc.getVehicles(fleetId)
+    set(s => ({ vehicles: (data ?? []) as Vehicle[], loading: { ...s.loading, vehicles: false } }))
   },
 
-  fetchNotifications: async (_userId: string) => {
+  fetchNotifications: async (userId) => {
     set(s => ({ loading: { ...s.loading, notifications: true } }))
-    try {
-      const res = await api.get<{ data: any[] }>(`/notifications?page=1&limit=50`)
-      const notifs = (res.data || []).map((n: any) => ({
-        id: n.id,
-        title: n.title ?? '',
-        message: n.message,
-        notification_type: n.notification_type ?? n.notificationType ?? '',
-        is_read: n.is_read ?? n.isRead ?? false,
-        action_url: n.action_url ?? n.actionUrl ?? null,
-        user_id: n.user_id ?? n.userId ?? '',
-        fleet_id: n.fleet_id ?? n.fleetId ?? '',
-        created_at: n.created_at ?? n.createdAt ?? '',
-      }))
-      set(s => ({ notifications: notifs, loading: { ...s.loading, notifications: false } }))
-    } catch (e) {
-      console.error('fetchNotifications error:', e)
-      set(s => ({ loading: { ...s.loading, notifications: false } }))
-    }
+    const data = await notificationsSvc.getNotifications(userId)
+    set(s => ({ notifications: data ?? [], loading: { ...s.loading, notifications: false } }))
   },
 
-  fetchComplianceRequirements: async (_fleetId: string) => {
-    try {
-      const res = await api.get<{ data: any[] }>(`/compliance/requirements`)
-      const reqs = (res.data || []).map((r: any) => ({
-        id: r.id,
-        name: r.name,
-        description: r.description ?? null,
-        regulatory_body: r.regulatory_body ?? r.regulatoryBody ?? '',
-        required_hours: r.required_hours ?? r.requiredHours ?? null,
-        renewal_period: r.renewal_period ?? r.renewalPeriod ?? null,
-        applies_to: r.applies_to ?? r.appliesTo ?? [],
-        is_active: r.is_active ?? r.isActive ?? true,
-        fleet_id: r.fleet_id ?? r.fleetId ?? null,
-        alert_days: r.alert_days ?? r.alertDays ?? [],
-        created_at: r.created_at ?? r.createdAt ?? '',
-      }))
-      set({ complianceRequirements: reqs })
-    } catch (e) {
-      console.error('fetchComplianceRequirements error:', e)
-    }
+  fetchComplianceRequirements: async (fleetId) => {
+    const data = await complianceSvc.getComplianceRequirements(fleetId)
+    set({ complianceRequirements: data ?? [] })
   },
 
-  fetchDashboardStats: async (_fleetId: string) => {
+  fetchModules: async (programId) => {
+    set(s => ({ loading: { ...s.loading, modules: true } }))
+    const data = await modulesSvc.getModules(programId)
+    set(s => ({ modules: data as Module[] ?? [], loading: { ...s.loading, modules: false } }))
+  },
+
+  fetchLessons: async (moduleId) => {
+    const data = await modulesSvc.getLessons(moduleId)
+    set(s => ({ lessons: { ...s.lessons, [moduleId]: data as Lesson[] ?? [] } }))
+  },
+
+  fetchDashboardStats: async (fleetId) => {
     set(s => ({ loading: { ...s.loading, dashboard: true } }))
     const store = get()
-
-    const drivers = store.profiles.filter(p => p.role === 'DRIVER')
+    const [profilesRes, vehiclesRes, assignmentsRes, docsRes, completionsRes] = await Promise.all([
+      supabase.from('profiles').select('*').eq('fleet_id', fleetId),
+      supabase.from('vehicles').select('*').eq('fleet_id', fleetId),
+      supabase.from('assignments').select('*').eq('fleet_id', fleetId),
+      supabase.from('driver_documents').select('*').eq('fleet_id', fleetId).order('expiration_date'),
+      supabase.from('completion_records').select('*').eq('fleet_id', fleetId),
+    ])
+    const allProfiles = (profilesRes.data ?? []) as Profile[]
+    const allVehicles = (vehiclesRes.data ?? []) as Vehicle[]
+    const allAssignments = (assignmentsRes.data ?? []) as Assignment[]
+    const docs = (docsRes.data ?? []) as DriverDocument[]
+    const drivers = allProfiles.filter(p => p.role === 'DRIVER')
     const activeDrivers = drivers.filter(p => p.is_active)
-    const overdueAssignments = store.assignments.filter(a => a.status === 'overdue')
+    const overdueAssignments = allAssignments.filter(a => a.status === 'overdue')
     const now = new Date()
-    const thirtyDays = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-    const expiringDocs = store.documents.filter(d => {
-      const exp = new Date(d.expiration_date)
-      return exp > now && exp <= thirtyDays
-    })
-    const expiredDocs = store.documents.filter(d => new Date(d.expiration_date) <= now)
-
+    const thirtyDays = new Date(now.getTime() + 30 * 86400000)
+    const expiringDocs = docs.filter(d => { const exp = new Date(d.expiration_date); return exp > now && exp <= thirtyDays })
+    const expiredDocs = docs.filter(d => new Date(d.expiration_date) <= now)
+    const issueCount = store.complianceRecords.filter(c => c.status === 'EXPIRED' || c.status === 'EXPIRING_SOON').length
+    const complianceRate = drivers.length > 0
+      ? Math.round(((drivers.length - (issueCount > 0 ? expiredDocs.length : 0)) / Math.max(drivers.length, 1)) * 100)
+      : 100
     set(s => ({
       dashboardStats: {
         totalDrivers: drivers.length,
         activeDrivers: activeDrivers.length,
-        totalVehicles: store.vehicles.length,
-        complianceRate: drivers.length > 0 ? 100 : 100, // TODO: calculate based on data
+        totalVehicles: allVehicles.filter(v => v.is_active).length,
+        complianceRate: Math.min(complianceRate, 100),
         overdueAssignments: overdueAssignments.length,
-        completedTrainings: store.completionRecords.length,
+        completedTrainings: completionsRes.data?.length ?? 0,
         expiringDocuments: expiringDocs.length + expiredDocs.length,
         upcomingExpirations: expiringDocs.slice(0, 5),
       },
@@ -337,162 +216,139 @@ export const useAppStore = create<AppState>((set, get) => ({
     }))
   },
 
-  markNotificationRead: async (id: string) => {
-    try {
-      await api.put(`/notifications/${id}`, { isRead: true })
-      set(s => ({
-        notifications: s.notifications.map(n => n.id === id ? { ...n, is_read: true } : n),
-      }))
-    } catch (e) {
-      console.error('markNotificationRead error:', e)
-    }
+  createVehicle: async (fleetId, data) => {
+    const v = await vehiclesSvc.createVehicle(fleetId, data)
+    set(s => ({ vehicles: [...s.vehicles, v as Vehicle] }))
   },
-
-  addProfile: async (profile) => {
-    try {
-      const res = await api.post('/users', {
-        email: profile.email,
-        password: 'TempPass123!',
-        name: profile.name,
-        role: profile.role,
-        fleetId: profile.fleet_id,
-      })
-      const u = res.data
-      const newProfile = snakeToCamelProfile(u)
-      set(s => ({ profiles: [...s.profiles, newProfile] }))
-    } catch (e) {
-      console.error('addProfile error:', e)
-    }
+  updateVehicle: async (id, data) => {
+    const v = await vehiclesSvc.updateVehicle(id, data)
+    set(s => ({ vehicles: s.vehicles.map(x => x.id === id ? v as Vehicle : x) }))
   },
-
-  updateProfile: async (id, updates) => {
-    try {
-      await api.put(`/users/${id}`, updates)
-      set(s => ({
-        profiles: s.profiles.map(p => p.id === id ? { ...p, ...updates, updated_at: new Date().toISOString() } : p),
-      }))
-    } catch (e) {
-      console.error('updateProfile error:', e)
-    }
-  },
-
-  deleteProfile: async (id) => {
-    try {
-      await api.delete(`/users/${id}`)
-      set(s => ({ profiles: s.profiles.filter(p => p.id !== id) }))
-    } catch (e) {
-      console.error('deleteProfile error:', e)
-    }
-  },
-
-  addVehicle: async (_vehicle) => {
-    // API not yet implemented
-    console.warn('addVehicle API not yet implemented')
-  },
-
-  updateVehicle: async (id, updates) => {
-    // API not yet implemented
-    set(s => ({
-      vehicles: s.vehicles.map(v => v.id === id ? { ...v, ...updates } : v),
-    }))
-  },
-
   deleteVehicle: async (id) => {
-    // API not yet implemented
-    set(s => ({ vehicles: s.vehicles.filter(v => v.id !== id) }))
+    await vehiclesSvc.deleteVehicle(id)
+    set(s => ({ vehicles: s.vehicles.filter(x => x.id !== id) }))
   },
 
-  updateFleet: async (updates) => {
-    const store = get()
-    if (store.fleet) {
-      try {
-        await api.put(`/fleets/${store.fleet.id}`, updates)
-        set(s => ({
-          fleet: s.fleet ? { ...s.fleet, ...updates, updated_at: new Date().toISOString() } : null,
-        }))
-      } catch (e) {
-        console.error('updateFleet error:', e)
-      }
-    }
+  createTrainingProgram: async (fleetId, data) => {
+    const p = await trainingsSvc.createTrainingProgram(fleetId, data)
+    set(s => ({ trainingPrograms: [...s.trainingPrograms, p as TrainingProgram] }))
+  },
+  updateTrainingProgram: async (id, data) => {
+    const p = await trainingsSvc.updateTrainingProgram(id, data)
+    set(s => ({ trainingPrograms: s.trainingPrograms.map(x => x.id === id ? p as TrainingProgram : x) }))
+  },
+  deleteTrainingProgram: async (id) => {
+    await trainingsSvc.deleteTrainingProgram(id)
+    set(s => ({ trainingPrograms: s.trainingPrograms.filter(x => x.id !== id) }))
+  },
+  createAssignment: async (fleetId, assignedBy, data) => {
+    const a = await trainingsSvc.createAssignment(fleetId, assignedBy, data)
+    set(s => ({ assignments: [a as Assignment, ...s.assignments] }))
+  },
+  deleteAssignment: async (id) => {
+    await trainingsSvc.deleteAssignment(id)
+    set(s => ({ assignments: s.assignments.filter(x => x.id !== id) }))
   },
 
-  addComplianceRecord: async (_record) => {
-    // API not yet implemented
-    console.warn('addComplianceRecord API not yet implemented')
+  updateComplianceRecord: async (id, data) => {
+    const r = await complianceSvc.updateComplianceRecord(id, data)
+    set(s => ({ complianceRecords: s.complianceRecords.map(x => x.id === id ? r as DriverCompliance : x) }))
+  },
+  createDocument: async (fleetId, data) => {
+    const d = await complianceSvc.createDocument(fleetId, data)
+    set(s => ({ documents: [...s.documents, d as DriverDocument] }))
+  },
+  updateDocument: async (id, data) => {
+    const d = await complianceSvc.updateDocument(id, data)
+    set(s => ({ documents: s.documents.map(x => x.id === id ? d as DriverDocument : x) }))
+  },
+  deleteDocument: async (id) => {
+    await complianceSvc.deleteDocument(id)
+    set(s => ({ documents: s.documents.filter(x => x.id !== id) }))
+  },
+  createRequirement: async (fleetId, data) => {
+    const r = await complianceSvc.createRequirement(fleetId, data)
+    set(s => ({ complianceRequirements: [...s.complianceRequirements, r as ComplianceRequirement] }))
+  },
+  updateRequirement: async (id, data) => {
+    const r = await complianceSvc.updateRequirement(id, data)
+    set(s => ({ complianceRequirements: s.complianceRequirements.map(x => x.id === id ? r as ComplianceRequirement : x) }))
   },
 
-  updateComplianceRecord: async (id, updates) => {
+  createModule: async (fleetId, programId, data) => {
+    const m = await modulesSvc.createModule(fleetId, programId, data)
+    set(s => ({ modules: [...s.modules, m as Module] }))
+  },
+  updateModule: async (id, data) => {
+    const m = await modulesSvc.updateModule(id, data)
+    set(s => ({ modules: s.modules.map(x => x.id === id ? m as Module : x) }))
+  },
+  deleteModule: async (id) => {
+    await modulesSvc.deleteModule(id)
     set(s => ({
-      complianceRecords: s.complianceRecords.map(r => r.id === id ? { ...r, ...updates } : r),
+      modules: s.modules.filter(x => x.id !== id),
+      lessons: Object.fromEntries(Object.entries(s.lessons).filter(([k]) => k !== id)),
+    }))
+  },
+  createLesson: async (fleetId, moduleId, data) => {
+    const l = await modulesSvc.createLesson(fleetId, moduleId, data)
+    set(s => ({ lessons: { ...s.lessons, [moduleId]: [...(s.lessons[moduleId] ?? []), l as Lesson] } }))
+  },
+  updateLesson: async (id, moduleId, data) => {
+    const l = await modulesSvc.updateLesson(id, data)
+    set(s => ({
+      lessons: {
+        ...s.lessons,
+        [moduleId]: (s.lessons[moduleId] ?? []).map(x => x.id === id ? l as Lesson : x),
+      },
+    }))
+  },
+  deleteLesson: async (id, moduleId) => {
+    await modulesSvc.deleteLesson(id)
+    set(s => ({
+      lessons: { ...s.lessons, [moduleId]: (s.lessons[moduleId] ?? []).filter(x => x.id !== id) },
     }))
   },
 
-  addDocument: async (doc) => {
-    try {
-      await api.post('/documents', {
-        documentType: doc.document_type,
-        documentNumber: doc.document_number,
-        expirationDate: new Date(doc.expiration_date).toISOString(),
-        issuedDate: doc.issued_date ? new Date(doc.issued_date).toISOString() : undefined,
-        issuingState: doc.issuing_state,
-        userId: doc.user_id,
-      })
-      // Refetch documents to get fresh data with IDs
-      const store = get()
-      if (store.fleet) await store.fetchDocuments(store.fleet.id)
-    } catch (e) {
-      console.error('addDocument error:', e)
-    }
+  updateProfile: async (id, data) => {
+    const p = await profilesSvc.updateProfile(id, data)
+    set(s => ({ profiles: s.profiles.map(x => x.id === id ? p as Profile : x) }))
+  },
+  updateNotificationPreferences: async (id, prefs) => {
+    const p = await profilesSvc.updateProfile(id, prefs as never)
+    set(s => ({ profiles: s.profiles.map(x => x.id === id ? p as Profile : x) }))
+  },
+  updateFleetNotificationSettings: async (id, settings) => {
+    const { data, error } = await supabase
+      .from('fleets')
+      .update(settings as never)
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    set({ fleet: data as Fleet })
+  },
+  toggleUserActive: async (id, isActive) => {
+    const p = await profilesSvc.toggleUserActive(id, isActive)
+    set(s => ({ profiles: s.profiles.map(x => x.id === id ? p as Profile : x) }))
+  },
+  createUser: async (fleetId, data) => {
+    await profilesSvc.createUserViaEdge(fleetId, data)
   },
 
-  updateDocument: async (id, updates) => {
-    set(s => ({
-      documents: s.documents.map(d => d.id === id ? { ...d, ...updates } : d),
-    }))
+  markNotificationRead: async (id) => {
+    await notificationsSvc.markAsRead(id)
+    set(s => ({ notifications: s.notifications.map(n => n.id === id ? { ...n, is_read: true } : n) }))
   },
-
-  addTrainingProgram: async (program) => {
-    try {
-      await api.post('/training-programs', {
-        programName: program.program_name,
-        description: program.description,
-        isRecommended: program.is_recommended,
-        fleetId: program.fleet_id,
-      })
-      // Refetch
-      const store = get()
-      if (store.fleet) await store.fetchTrainingPrograms(store.fleet.id)
-    } catch (e) {
-      console.error('addTrainingProgram error:', e)
-    }
+  markAllNotificationsRead: async (userId) => {
+    await notificationsSvc.markAllAsRead(userId)
+    set(s => ({ notifications: s.notifications.map(n => ({ ...n, is_read: true })) }))
   },
-
-  updateTrainingProgram: async (id, updates) => {
-    set(s => ({
-      trainingPrograms: s.trainingPrograms.map(p => p.id === id ? { ...p, ...updates, updated_at: new Date().toISOString() } : p),
-    }))
+  deleteNotification: async (id) => {
+    await notificationsSvc.deleteNotification(id)
+    set(s => ({ notifications: s.notifications.filter(n => n.id !== id) }))
   },
-
-  addAssignment: async (assignment) => {
-    try {
-      await api.post('/assignments', {
-        userId: assignment.user_id,
-        fleetId: assignment.fleet_id,
-        trainingProgramId: assignment.training_program_id,
-        dueDate: assignment.due_date,
-        priority: assignment.priority,
-      })
-      // Refetch
-      const store = get()
-      if (store.fleet) await store.fetchAssignments(store.fleet.id)
-    } catch (e) {
-      console.error('addAssignment error:', e)
-    }
-  },
-
-  updateAssignment: async (id, updates) => {
-    set(s => ({
-      assignments: s.assignments.map(a => a.id === id ? { ...a, ...updates } : a),
-    }))
+  sendNotification: async (opts) => {
+    return notificationsSvc.sendNotification(opts)
   },
 }))
