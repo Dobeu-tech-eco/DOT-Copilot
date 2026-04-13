@@ -1,74 +1,35 @@
 version: 2
 updates:
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: npm
+    directory: /
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: weekly
+      day: monday
       time: "09:00"
-      timezone: "America/New_York"
+      timezone: America/New_York
     open-pull-requests-limit: 10
+    reviewers:
+      - dobeutech
     labels:
-      - "dependencies"
-      - "root-web"
+      - dependencies
+      - automated
     commit-message:
-      prefix: "chore(deps)"
-
-  - package-ecosystem: "npm"
-    directory: "/cursor-projects/DOT-Copilot/backend"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "America/New_York"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "backend"
-    commit-message:
-      prefix: "chore(deps)"
+      prefix: "deps:"
+      include: scope
     groups:
-      development:
-        dependency-type: "development"
+      patch-minor:
         update-types:
-          - "minor"
-          - "patch"
-      production:
-        dependency-type: "production"
+          - patch
+          - minor
+      major:
         update-types:
-          - "patch"
+          - major
 
-  - package-ecosystem: "npm"
-    directory: "/cursor-projects/DOT-Copilot/frontend"
+  - package-ecosystem: github-actions
+    directory: /
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "America/New_York"
-    open-pull-requests-limit: 10
+      interval: weekly
+      day: monday
     labels:
-      - "dependencies"
-      - "frontend"
-    commit-message:
-      prefix: "chore(deps)"
-    groups:
-      development:
-        dependency-type: "development"
-        update-types:
-          - "minor"
-          - "patch"
-      production:
-        dependency-type: "production"
-        update-types:
-          - "patch"
-
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    labels:
-      - "dependencies"
-      - "ci"
-    commit-message:
-      prefix: "chore(ci)"
+      - dependencies
+      - ci
