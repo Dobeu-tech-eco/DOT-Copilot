@@ -3,6 +3,7 @@ import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { validateBody, createFleetSchema, updateFleetSchema, paginationSchema, validateQuery } from '../schemas';
+import { isPlatformAdmin, assertFleetOwnership } from '../middleware/fleetScope';
 
 const router = Router();
 
@@ -13,13 +14,19 @@ router.get('/', validateQuery(paginationSchema), async (req: AuthenticatedReques
     const { page, limit } = req.query as any;
     const skip = (page - 1) * limit;
 
+    // Non-admin callers may only ever see their own fleet.
+    const where = isPlatformAdmin(req.user)
+      ? {}
+      : { id: req.user?.fleetId ?? '__NO_FLEET__' };
+
     const [fleets, total] = await Promise.all([
       prisma.fleet.findMany({
+        where,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.fleet.count(),
+      prisma.fleet.count({ where }),
     ]);
 
     res.json({
@@ -48,8 +55,9 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       },
     });
 
-    if (!fleet) {
-      return res.status(404).json({ error: 'Fleet not found' });
+    // A fleet "belongs to itself" for ownership purposes: its own id is the tenant boundary.
+    if (!fleet || !assertFleetOwnership({ fleetId: fleet.id }, req.user, res, 'Fleet not found')) {
+      return;
     }
 
     res.json({ data: fleet });
@@ -77,8 +85,8 @@ router.put('/:id', requireRole('ADMIN', 'SUPERVISOR'), validateBody(updateFleetS
     const { id } = req.params;
 
     const existingFleet = await prisma.fleet.findUnique({ where: { id } });
-    if (!existingFleet) {
-      return res.status(404).json({ error: 'Fleet not found' });
+    if (!existingFleet || !assertFleetOwnership({ fleetId: existingFleet.id }, req.user, res, 'Fleet not found')) {
+      return;
     }
 
     const fleet = await prisma.fleet.update({
@@ -98,8 +106,8 @@ router.delete('/:id', requireRole('ADMIN'), async (req: AuthenticatedRequest, re
     const { id } = req.params;
 
     const existingFleet = await prisma.fleet.findUnique({ where: { id } });
-    if (!existingFleet) {
-      return res.status(404).json({ error: 'Fleet not found' });
+    if (!existingFleet || !assertFleetOwnership({ fleetId: existingFleet.id }, req.user, res, 'Fleet not found')) {
+      return;
     }
 
     await prisma.fleet.delete({ where: { id } });
