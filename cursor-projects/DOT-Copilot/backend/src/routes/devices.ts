@@ -2,6 +2,7 @@ import { logError } from '../services/logger';
 import { Router, Response } from 'express';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import pushNotificationService from '../services/pushNotification';
+import prisma from '../db';
 import { z } from 'zod';
 
 const router = Router();
@@ -79,6 +80,20 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
 router.delete('/:token', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { token } = req.params;
+    const user = req.user!;
+
+    // SECURITY: A device token belongs to a single user; only that user
+    // (or an admin) may unregister it. Without this check, any
+    // authenticated caller could unregister an arbitrary device by guessing
+    // or observing its token.
+    const device = await prisma.pushDevice.findUnique({ where: { deviceToken: token } });
+    if (!device) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+
+    if (device.userId !== user.userId && user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
 
     await pushNotificationService.unregisterDevice(token);
 
