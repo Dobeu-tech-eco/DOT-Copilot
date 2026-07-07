@@ -4,6 +4,7 @@ import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { z } from 'zod';
 import eventDispatcher from '../services/eventDispatcher';
+import { assertFleetOwnership, isPlatformAdmin } from '../middleware/fleetScope';
 
 const router = Router();
 
@@ -105,6 +106,12 @@ router.get('/sessions', async (req: AuthenticatedRequest, res: Response) => {
       // Filter by trainee/trainer if specified
       if (traineeId) where.traineeId = traineeId;
       if (trainerId) where.trainerId = trainerId;
+
+      // SECURITY: Non-admin, non-driver callers (supervisors, coaches, etc.)
+      // are confined to sessions within their own fleet.
+      if (!isPlatformAdmin(user)) {
+        where.fleetId = user.fleetId ?? '__NO_FLEET__';
+      }
     }
 
     if (status) where.status = status;
@@ -162,6 +169,11 @@ router.get('/sessions/:id', async (req: AuthenticatedRequest, res: Response) => 
       return res.status(403).json({ error: 'Forbidden' });
     }
 
+    // SECURITY: Non-drivers may only view sessions within their own fleet.
+    if (user.role !== 'DRIVER' && !assertFleetOwnership(session, user, res, 'Session not found')) {
+      return;
+    }
+
     res.json({ data: session });
   } catch (error: any) {
     logError('Get BTW session error', error);
@@ -181,6 +193,17 @@ router.post('/sessions', requireRole('ADMIN', 'SUPERVISOR', 'DRIVER_COACH'), asy
     const validated = btwSessionSchema.parse(req.body);
     const user = req.user!;
 
+    // SECURITY: Verify the trainee belongs to the trainer's fleet before
+    // creating a session for them (prevents cross-tenant session creation).
+    const trainee = await prisma.user.findUnique({
+      where: { id: validated.traineeId },
+      select: { fleetId: true },
+    });
+
+    if (!trainee || !assertFleetOwnership(trainee, user, res, 'Trainee not found')) {
+      return;
+    }
+
     // Calculate total minutes
     const startTime = new Date(validated.startTime);
     const endTime = new Date(validated.endTime);
@@ -194,6 +217,7 @@ router.post('/sessions', requireRole('ADMIN', 'SUPERVISOR', 'DRIVER_COACH'), asy
       data: {
         traineeId: validated.traineeId,
         trainerId: user.userId,
+        fleetId: user.fleetId ?? trainee.fleetId ?? undefined,
         sessionDate: new Date(validated.sessionDate),
         startTime,
         endTime,
@@ -450,6 +474,14 @@ router.get('/trainee/:traineeId/summary', async (req: AuthenticatedRequest, res:
       return res.status(403).json({ error: 'Forbidden' });
     }
 
+    // SECURITY: Non-drivers may only view summaries for trainees in their own fleet.
+    if (user.role !== 'DRIVER') {
+      const trainee = await prisma.user.findUnique({ where: { id: traineeId }, select: { fleetId: true } });
+      if (!trainee || !assertFleetOwnership(trainee, user, res, 'Trainee not found')) {
+        return;
+      }
+    }
+
     const sessions = await prisma.btwSession.findMany({
       where: {
         traineeId,
@@ -522,6 +554,11 @@ router.get('/trainee/:traineeId/summary', async (req: AuthenticatedRequest, res:
 router.delete('/sessions/:id', requireRole('ADMIN'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
+
+    const existing = await prisma.btwSession.findUnique({ where: { id } });
+    if (!existing || !assertFleetOwnership(existing, req.user, res, 'Session not found')) {
+      return;
+    }
 
     await prisma.btwSession.delete({
       where: { id },
