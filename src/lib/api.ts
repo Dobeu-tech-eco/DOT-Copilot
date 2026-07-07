@@ -1,100 +1,37 @@
+import { supabase } from './supabase'
+
 const API_BASE = '/api';
 
-let accessToken: string | null = null;
-let refreshToken: string | null = null;
-let refreshPromise: Promise<boolean> | null = null;
+async function getAuthHeader(): Promise<Record<string, string>> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-export function setTokens(access: string, refresh: string) {
-  accessToken = access;
-  refreshToken = refresh;
-  localStorage.setItem('accessToken', access);
-  localStorage.setItem('refreshToken', refresh);
-}
-
-export function loadTokens() {
-  accessToken = localStorage.getItem('accessToken');
-  refreshToken = localStorage.getItem('refreshToken');
-}
-
-export function clearTokens() {
-  accessToken = null;
-  refreshToken = null;
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('refreshToken');
-}
-
-export function getAccessToken() {
-  return accessToken;
-}
-
-async function refreshAccessToken(): Promise<boolean> {
-  if (!refreshToken) return false;
-
-  try {
-    const res = await fetch(`${API_BASE}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-    });
-
-    if (!res.ok) {
-      clearTokens();
-      return false;
-    }
-
-    const json = await res.json();
-    setTokens(json.data.accessToken, json.data.refreshToken);
-    return true;
-  } catch {
-    clearTokens();
-    return false;
-  }
+  return session?.access_token
+    ? { Authorization: `Bearer ${session.access_token}` }
+    : {};
 }
 
 export async function apiFetch<T = any>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  loadTokens();
+  const authHeader = await getAuthHeader();
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    ...authHeader,
     ...(options.headers as Record<string, string> || {}),
   };
 
-  if (accessToken) {
-    headers['Authorization'] = `Bearer ${accessToken}`;
-  }
-
-  let res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
   });
 
   if (res.status === 401) {
     const body = await res.json().catch(() => ({}));
-    if (body.code === 'TOKEN_EXPIRED' && refreshToken) {
-      if (!refreshPromise) {
-        refreshPromise = refreshAccessToken();
-      }
-      const refreshed = await refreshPromise;
-      refreshPromise = null;
-
-      if (refreshed) {
-        headers['Authorization'] = `Bearer ${accessToken}`;
-        res = await fetch(`${API_BASE}${path}`, {
-          ...options,
-          headers,
-        });
-      } else {
-        clearTokens();
-        window.location.href = '/login';
-        throw new Error('Session expired');
-      }
-    } else {
-      clearTokens();
-      throw new Error(body.error || 'Unauthorized');
-    }
+    throw new Error(body.error || 'Unauthorized');
   }
 
   if (!res.ok) {
