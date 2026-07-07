@@ -38,6 +38,7 @@ import devicesRoutes from './routes/devices';
 import i18nRoutes from './routes/i18n';
 import agentNativeRoutes from './routes/agentNative';
 import docsRoutes from './routes/docs';
+import webhooksRoutes from './routes/webhooks';
 
 const app: Express = express();
 const PORT = process.env.PORT || 3001;
@@ -73,7 +74,7 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    if (!origin || allowedOrigins.some((o) => origin.startsWith(o))) {
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error(`Origin ${origin} not allowed by CORS`));
@@ -221,6 +222,7 @@ app.use('/api/reminders', remindersRoutes);
 app.use('/api/devices', devicesRoutes);
 app.use('/api/i18n', i18nRoutes);
 app.use('/api/agent', agentNativeRoutes);
+app.use('/api/webhooks', webhooksRoutes);
 
 app.use((req: Request, res: Response) => {
   res.status(404).json({ error: 'Route not found' });
