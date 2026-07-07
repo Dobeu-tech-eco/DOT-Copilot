@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { api, setTokens, clearTokens, loadTokens, getAccessToken } from '../lib/api'
 import { supabase } from '../lib/supabase'
 import type { Profile } from '../types/database'
 
@@ -14,7 +13,13 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, name: string) => Promise<void>
   logout: () => Promise<void>
+  resetPassword: (email: string) => Promise<void>
   clearError: () => void
+}
+
+async function fetchProfile(userId: string): Promise<Profile | null> {
+  const { data } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
+  return data
 }
 
 export const useAuthStore = create<AuthState>((set, _get) => ({
@@ -26,43 +31,36 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
   initialized: false,
 
   initialize: async () => {
-    loadTokens()
-    const token = getAccessToken()
-    if (token) {
-      try {
-        const res = await api.get<{ data: any }>('/users/me')
-        const u = res.data
-        const profile: Profile = {
-          id: u.id,
-          email: u.email,
-          name: u.name,
-          role: u.role,
-          fleet_id: u.fleetId || u.fleet_id || null,
-          location_id: u.locationId || u.location_id || null,
-          phone: u.phone || null,
-          preferred_language: u.preferredLanguage || u.preferred_language || 'en',
-          timezone: u.timezone || 'America/New_York',
-          prefer_email: u.preferEmail ?? u.prefer_email ?? true,
-          prefer_sms: u.preferSms ?? u.prefer_sms ?? false,
-          prefer_push: u.preferPush ?? u.prefer_push ?? true,
-          employee_id: u.employeeId || u.employee_id || null,
-          hire_date: u.hireDate || u.hire_date || null,
-          is_active: u.isActive ?? u.is_active ?? true,
-          last_login_at: u.lastLoginAt || u.last_login_at || null,
-          created_at: u.createdAt || u.created_at || '',
-          updated_at: u.updatedAt || u.updated_at || '',
-        }
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (session) {
+        const profile = await fetchProfile(session.user.id)
         set({
           user: profile,
-          session: { access_token: token },
-          isAuthenticated: true,
+          session: { access_token: session.access_token },
+          isAuthenticated: !!profile,
           initialized: true,
         })
-      } catch {
-        clearTokens()
+      } else {
         set({ initialized: true })
       }
-    } else {
+
+      supabase.auth.onAuthStateChange(async (_event, newSession) => {
+        if (newSession) {
+          const profile = await fetchProfile(newSession.user.id)
+          set({
+            user: profile,
+            session: { access_token: newSession.access_token },
+            isAuthenticated: !!profile,
+          })
+        } else {
+          set({ user: null, session: null, isAuthenticated: false })
+        }
+      })
+    } catch {
       set({ initialized: true })
     }
   },
@@ -71,35 +69,16 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
     set({ loading: true, error: null })
 
     try {
-      const res = await api.post<{ data: any }>('/auth/login', { email, password })
-      const { user, accessToken, refreshToken } = res.data
-      setTokens(accessToken, refreshToken)
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) throw error
+      if (!data.session) throw new Error('Login failed')
 
-      const profile: Profile = {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        fleet_id: user.fleet_id || null,
-        location_id: user.location_id || null,
-        phone: user.phone || null,
-        preferred_language: user.preferred_language || 'en',
-        timezone: user.timezone || 'America/New_York',
-        prefer_email: user.prefer_email ?? true,
-        prefer_sms: user.prefer_sms ?? false,
-        prefer_push: user.prefer_push ?? true,
-        employee_id: user.employee_id || null,
-        hire_date: user.hire_date || null,
-        is_active: user.is_active ?? true,
-        last_login_at: user.last_login_at || null,
-        created_at: user.created_at || '',
-        updated_at: user.updated_at || '',
-      }
+      const profile = await fetchProfile(data.session.user.id)
 
       set({
         user: profile,
-        session: { access_token: accessToken },
-        isAuthenticated: true,
+        session: { access_token: data.session.access_token },
+        isAuthenticated: !!profile,
         loading: false,
       })
     } catch (error: unknown) {
@@ -120,11 +99,7 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
       if (error) throw error
       if (!data.user) throw new Error('Registration failed')
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', data.user.id)
-        .maybeSingle()
+      const profile = await fetchProfile(data.user.id)
 
       set({
         user: profile,
@@ -141,11 +116,22 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
 
   logout: async () => {
     try {
-      const rt = localStorage.getItem('refreshToken')
-      await api.post('/auth/logout', { refreshToken: rt }).catch(() => {})
+      await supabase.auth.signOut()
     } finally {
-      clearTokens()
       set({ user: null, session: null, isAuthenticated: false })
+    }
+  },
+
+  resetPassword: async (email: string) => {
+    set({ loading: true, error: null })
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email)
+      if (error) throw error
+      set({ loading: false })
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Password reset failed'
+      set({ error: msg, loading: false })
+      throw error
     }
   },
 
