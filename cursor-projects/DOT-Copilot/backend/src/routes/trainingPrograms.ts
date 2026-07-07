@@ -4,6 +4,7 @@ import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { validateBody, createTrainingProgramSchema, updateTrainingProgramSchema, paginationSchema, validateQuery } from '../schemas';
 import { z } from 'zod';
+import { assertFleetOwnership, isPlatformAdmin } from '../middleware/fleetScope';
 
 const router = Router();
 
@@ -18,7 +19,11 @@ router.get('/', validateQuery(querySchema), async (req: AuthenticatedRequest, re
     const { page, limit, fleetId } = req.query as any;
     const skip = (page - 1) * limit;
 
-    const where = fleetId ? { fleetId } : {};
+    // SECURITY: Non-admin callers are always confined to their own fleet,
+    // regardless of any fleetId query param they pass.
+    const where = isPlatformAdmin(req.user)
+      ? (fleetId ? { fleetId } : {})
+      : { fleetId: req.user?.fleetId ?? '__NO_FLEET__' };
 
     const [programs, total] = await Promise.all([
       prisma.trainingProgram.findMany({
@@ -64,8 +69,8 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       },
     });
 
-    if (!program) {
-      return res.status(404).json({ error: 'Training program not found' });
+    if (!program || !assertFleetOwnership(program, req.user, res, 'Training program not found')) {
+      return;
     }
 
     res.json({ data: program });
@@ -94,8 +99,8 @@ router.put('/:id', requireRole('ADMIN', 'SUPERVISOR'), validateBody(updateTraini
     const { id } = req.params;
 
     const existing = await prisma.trainingProgram.findUnique({ where: { id } });
-    if (!existing) {
-      return res.status(404).json({ error: 'Training program not found' });
+    if (!existing || !assertFleetOwnership(existing, req.user, res, 'Training program not found')) {
+      return;
     }
 
     const program = await prisma.trainingProgram.update({
@@ -116,8 +121,8 @@ router.delete('/:id', requireRole('ADMIN'), async (req: AuthenticatedRequest, re
     const { id } = req.params;
 
     const existing = await prisma.trainingProgram.findUnique({ where: { id } });
-    if (!existing) {
-      return res.status(404).json({ error: 'Training program not found' });
+    if (!existing || !assertFleetOwnership(existing, req.user, res, 'Training program not found')) {
+      return;
     }
 
     await prisma.trainingProgram.delete({ where: { id } });

@@ -3,6 +3,7 @@ import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { validateBody, createQuizQuestionSchema, updateQuizQuestionSchema, createQuizResponseSchema } from '../schemas';
+import { assertFleetOwnershipByResolvedId, isPlatformAdmin } from '../middleware/fleetScope';
 
 const router = Router();
 
@@ -11,6 +12,18 @@ router.use(authenticate);
 // Get quiz questions for a lesson
 router.get('/lessons/:lessonId/questions', async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // SECURITY: A QuizQuestion has no fleetId of its own — it inherits
+    // tenancy from its parent Lesson. Verify the lesson belongs to the
+    // caller's fleet before returning any questions.
+    const lesson = await prisma.lesson.findUnique({
+      where: { id: req.params.lessonId },
+      select: { fleetId: true },
+    });
+
+    if (!lesson || !assertFleetOwnershipByResolvedId(lesson, lesson.fleetId, req.user, res, 'Lesson not found')) {
+      return;
+    }
+
     const questions = await prisma.quizQuestion.findMany({
       where: { lessonId: req.params.lessonId },
       orderBy: { sequenceOrder: 'asc' },
@@ -26,6 +39,17 @@ router.get('/lessons/:lessonId/questions', async (req: AuthenticatedRequest, res
 // Create quiz question
 router.post('/questions', requireRole('ADMIN', 'SUPERVISOR'), validateBody(createQuizQuestionSchema), async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // SECURITY: Verify the target lesson belongs to the caller's fleet
+    // before creating a question under it.
+    const lesson = await prisma.lesson.findUnique({
+      where: { id: req.body.lessonId },
+      select: { fleetId: true },
+    });
+
+    if (!lesson || !assertFleetOwnershipByResolvedId(lesson, lesson.fleetId, req.user, res, 'Lesson not found')) {
+      return;
+    }
+
     const question = await prisma.quizQuestion.create({
       data: req.body,
     });
@@ -42,9 +66,12 @@ router.put('/questions/:id', requireRole('ADMIN', 'SUPERVISOR'), validateBody(up
   try {
     const { id } = req.params;
 
-    const existing = await prisma.quizQuestion.findUnique({ where: { id } });
-    if (!existing) {
-      return res.status(404).json({ error: 'Quiz question not found' });
+    const existing = await prisma.quizQuestion.findUnique({
+      where: { id },
+      include: { lesson: { select: { fleetId: true } } },
+    });
+    if (!existing || !assertFleetOwnershipByResolvedId(existing, existing.lesson?.fleetId, req.user, res, 'Quiz question not found')) {
+      return;
     }
 
     const question = await prisma.quizQuestion.update({
@@ -64,9 +91,12 @@ router.delete('/questions/:id', requireRole('ADMIN'), async (req: AuthenticatedR
   try {
     const { id } = req.params;
 
-    const existing = await prisma.quizQuestion.findUnique({ where: { id } });
-    if (!existing) {
-      return res.status(404).json({ error: 'Quiz question not found' });
+    const existing = await prisma.quizQuestion.findUnique({
+      where: { id },
+      include: { lesson: { select: { fleetId: true } } },
+    });
+    if (!existing || !assertFleetOwnershipByResolvedId(existing, existing.lesson?.fleetId, req.user, res, 'Quiz question not found')) {
+      return;
     }
 
     await prisma.quizQuestion.delete({ where: { id } });
@@ -82,6 +112,7 @@ router.delete('/questions/:id', requireRole('ADMIN'), async (req: AuthenticatedR
 router.post('/responses', validateBody(createQuizResponseSchema), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { selectedAnswer, quizQuestionId, completionRecordId } = req.body;
+    const user = req.user!;
 
     // Get the question to check correctness
     const question = await prisma.quizQuestion.findUnique({
@@ -90,6 +121,20 @@ router.post('/responses', validateBody(createQuizResponseSchema), async (req: Au
 
     if (!question) {
       return res.status(404).json({ error: 'Quiz question not found' });
+    }
+
+    // SECURITY: If a completionRecordId is supplied, make sure it actually
+    // belongs to the submitting user — otherwise a response could be linked
+    // to another user's completion record.
+    if (completionRecordId) {
+      const completionRecord = await prisma.completionRecord.findUnique({
+        where: { id: completionRecordId },
+        select: { userId: true },
+      });
+
+      if (!completionRecord || completionRecord.userId !== user.userId) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
     }
 
     const isCorrect = selectedAnswer === question.correctAnswer;
@@ -146,6 +191,27 @@ router.get('/lessons/:lessonId/responses', async (req: AuthenticatedRequest, res
 // Get quiz score for a completion record
 router.get('/completion-records/:recordId/score', async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const user = req.user!;
+
+    // SECURITY: Verify the completion record belongs to the caller (drivers)
+    // or their fleet (supervisors/admins) before exposing its quiz score.
+    const record = await prisma.completionRecord.findUnique({
+      where: { id: req.params.recordId },
+      select: { userId: true, fleetId: true },
+    });
+
+    if (!record) {
+      return res.status(404).json({ error: 'Completion record not found' });
+    }
+
+    if (user.role === 'DRIVER' && record.userId !== user.userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    if (user.role !== 'DRIVER' && !isPlatformAdmin(user) && record.fleetId !== user.fleetId) {
+      return res.status(404).json({ error: 'Completion record not found' });
+    }
+
     const responses = await prisma.quizResponse.findMany({
       where: { completionRecordId: req.params.recordId },
     });
@@ -168,4 +234,3 @@ router.get('/completion-records/:recordId/score', async (req: AuthenticatedReque
 });
 
 export default router;
-

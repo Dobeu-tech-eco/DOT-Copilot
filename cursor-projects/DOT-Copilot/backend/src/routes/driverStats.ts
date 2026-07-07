@@ -2,6 +2,7 @@ import { logError } from '../services/logger';
 import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
+import { assertFleetOwnership } from '../middleware/fleetScope';
 
 const router = Router();
 
@@ -170,6 +171,14 @@ router.get('/:userId', async (req: AuthenticatedRequest, res: Response) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
+    // SECURITY: Non-drivers may only view stats for users in their own fleet.
+    if (user.role !== 'DRIVER') {
+      const targetUser = await prisma.user.findUnique({ where: { id: userId }, select: { fleetId: true } });
+      if (!targetUser || !assertFleetOwnership(targetUser, user, res, 'Driver not found')) {
+        return;
+      }
+    }
+
     const stats = await prisma.driverStats.findUnique({
       where: { userId },
       include: {
@@ -208,6 +217,13 @@ router.get('/:userId', async (req: AuthenticatedRequest, res: Response) => {
 router.post('/:userId/refresh', requireRole('ADMIN', 'SUPERVISOR'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { userId } = req.params;
+    const user = req.user!;
+
+    // SECURITY: Only allow recalculating stats for users within the caller's fleet.
+    const targetUser = await prisma.user.findUnique({ where: { id: userId }, select: { fleetId: true } });
+    if (!targetUser || !assertFleetOwnership(targetUser, user, res, 'Driver not found')) {
+      return;
+    }
 
     const stats = await calculateAndUpdateDriverStats(userId);
 

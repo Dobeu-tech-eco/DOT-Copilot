@@ -3,6 +3,7 @@ import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { z } from 'zod';
+import { assertFleetOwnership, isPlatformAdmin } from '../middleware/fleetScope';
 
 const router = Router();
 
@@ -53,6 +54,17 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
     if (user.role === 'DRIVER') {
       where.userId = user.userId;
     } else if (userId) {
+      // SECURITY: Ensure the requested userId belongs to the caller's fleet
+      // before scoping reminders to it.
+      if (!isPlatformAdmin(user)) {
+        const targetUser = await prisma.user.findUnique({
+          where: { id: userId as string },
+          select: { fleetId: true },
+        });
+        if (!targetUser || !assertFleetOwnership(targetUser, user, res, 'User not found')) {
+          return;
+        }
+      }
       where.userId = userId;
     } else {
       // Supervisor sees reminders they created or are for users in their fleet
@@ -147,7 +159,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       where: { id },
       include: {
         user: {
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true, email: true, fleetId: true },
         },
         creator: {
           select: { id: true, name: true, email: true },
@@ -162,6 +174,11 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     // Check access
     if (user.role === 'DRIVER' && reminder.userId !== user.userId) {
       return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    // SECURITY: Non-drivers may only view reminders for users in their own fleet.
+    if (user.role !== 'DRIVER' && !assertFleetOwnership(reminder.user, user, res, 'Reminder not found')) {
+      return;
     }
 
     res.json({ data: reminder });
@@ -190,6 +207,18 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
       if (user.role === 'DRIVER') {
         return res.status(403).json({ error: 'Cannot set reminders for other users' });
       }
+
+      // SECURITY: Verify the target user belongs to the caller's fleet.
+      if (!isPlatformAdmin(user)) {
+        const targetUser = await prisma.user.findUnique({
+          where: { id: validated.userId },
+          select: { fleetId: true },
+        });
+        if (!targetUser || !assertFleetOwnership(targetUser, user, res, 'User not found')) {
+          return;
+        }
+      }
+
       targetUserId = validated.userId;
     }
 
@@ -240,6 +269,7 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
     const existing = await prisma.reminder.findUnique({
       where: { id },
+      include: { user: { select: { fleetId: true } } },
     });
 
     if (!existing) {
@@ -249,6 +279,11 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
     // Check permissions
     if (user.role === 'DRIVER' && existing.userId !== user.userId) {
       return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    // SECURITY: Non-drivers may only modify reminders for users in their own fleet.
+    if (user.role !== 'DRIVER' && !assertFleetOwnership(existing.user, user, res, 'Reminder not found')) {
+      return;
     }
 
     const reminder = await prisma.reminder.update({
@@ -288,6 +323,7 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
     const existing = await prisma.reminder.findUnique({
       where: { id },
+      include: { user: { select: { fleetId: true } } },
     });
 
     if (!existing) {
@@ -297,6 +333,11 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
     // Check permissions - can delete if owner or creator
     if (user.role === 'DRIVER' && existing.userId !== user.userId && existing.createdBy !== user.userId) {
       return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    // SECURITY: Non-drivers may only delete reminders for users in their own fleet.
+    if (user.role !== 'DRIVER' && !assertFleetOwnership(existing.user, user, res, 'Reminder not found')) {
+      return;
     }
 
     await prisma.reminder.delete({
