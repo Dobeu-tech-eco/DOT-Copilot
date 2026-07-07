@@ -25,6 +25,7 @@ export interface Profile {
   last_login_at: string | null
   created_at: string
   updated_at: string
+  is_platform_admin?: boolean
 }
 
 export interface Fleet {
