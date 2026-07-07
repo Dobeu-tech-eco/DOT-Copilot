@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
-import { LoadingSpinner } from '../../components/LoadingSpinner'
-import { EmptyState } from '../../components/EmptyState'
+import { supabase } from '../lib/supabase'
+import { LoadingSpinner } from '../components/LoadingSpinner'
+import { EmptyState } from '../components/EmptyState'
 import { Building2, Plus, Users } from 'lucide-react'
-import type { Fleet } from '../../types/database'
+import type { Fleet } from '../types/database'
 
 interface FleetWithCount extends Fleet {
   profile_count: number
@@ -73,12 +73,12 @@ export function AdminFleetsPage() {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-amber-600 mb-1">
-            DOT-Copilot Platform Admin &middot; Dobeu Tech Solutions
+            DOT-Copilot Platform Administration &middot; Dobeu Tech Solutions
           </p>
           <h1 className="text-2xl font-bold text-gray-900">Fleets</h1>
           <p className="text-sm text-gray-500 mt-1">All customer fleets provisioned on DOT-Copilot</p>
         </div>
-        <button onClick={() => navigate('/admin/fleets/new')} className="btn-primary">
+        <button onClick={() => navigate('/fleets/new')} className="btn-primary">
           <Plus size={16} /> New Fleet
         </button>
       </div>
@@ -96,7 +96,7 @@ export function AdminFleetsPage() {
             title="No fleets yet"
             description="Create the first customer fleet to get started"
             action={
-              <button onClick={() => navigate('/admin/fleets/new')} className="btn-primary">
+              <button onClick={() => navigate('/fleets/new')} className="btn-primary">
                 <Plus size={16} /> New Fleet
               </button>
             }
@@ -113,7 +113,11 @@ export function AdminFleetsPage() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {fleets.map(f => (
-                  <tr key={f.id} className="hover:bg-gray-50 transition-colors">
+                  <tr
+                    key={f.id}
+                    className="hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/fleets/${f.id}`)}
+                  >
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">

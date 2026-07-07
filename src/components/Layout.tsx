@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useAppStore } from '../store/appStore'
-import { supabase } from '../lib/supabase'
-import { LayoutDashboard, Users, BookOpen, ShieldCheck, Truck, Bell, LogOut, Menu, X, ChevronDown, ChartBar as BarChart2, Settings, ShieldAlert } from 'lucide-react'
+import { LayoutDashboard, Users, BookOpen, ShieldCheck, Truck, Bell, LogOut, Menu, X, ChevronDown, ChartBar as BarChart2, Settings } from 'lucide-react'
 import type { UserRole } from '../types/database'
 
 interface NavItem {
@@ -30,34 +29,12 @@ export function Layout() {
   const { notifications } = useAppStore()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
 
   const unreadCount = notifications.filter(n => !n.is_read).length
-  const isAdminSection = location.pathname.startsWith('/admin')
 
   const filteredNavItems = navItems.filter(item =>
     user?.role && item.roles.includes(user.role)
   )
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function checkPlatformAdmin() {
-      if (!user?.id) {
-        if (!cancelled) setIsPlatformAdmin(false)
-        return
-      }
-      const { data } = await supabase
-        .from('profiles')
-        .select('is_platform_admin')
-        .eq('id', user.id)
-        .maybeSingle() as { data: { is_platform_admin: boolean } | null }
-      if (!cancelled) setIsPlatformAdmin(!!data?.is_platform_admin)
-    }
-
-    checkPlatformAdmin()
-    return () => { cancelled = true }
-  }, [user?.id])
 
   const handleLogout = async () => {
     await logout()
@@ -131,23 +108,6 @@ export function Layout() {
               </button>
             )
           })}
-
-          {isPlatformAdmin && (
-            <button
-              onClick={() => handleNav('/admin')}
-              className={`
-                w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
-                transition-colors duration-150
-                ${isAdminSection
-                  ? 'bg-amber-600 text-white'
-                  : 'text-amber-400 hover:text-amber-300 hover:bg-slate-800'
-                }
-              `}
-            >
-              <ShieldAlert size={20} />
-              Platform Admin
-            </button>
-          )}
         </nav>
 
         <div className="p-3 border-t border-slate-700/50">
@@ -198,16 +158,9 @@ export function Layout() {
           </button>
 
           <div className="hidden lg:block">
-            {isAdminSection ? (
-              <div>
-                <h1 className="text-lg font-semibold text-gray-900">DOT-Copilot Platform Admin</h1>
-                <p className="text-xs text-gray-500">Dobeu Tech Solutions</p>
-              </div>
-            ) : (
-              <h1 className="text-lg font-semibold text-gray-900">
-                {filteredNavItems.find(i => i.path === location.pathname)?.label ?? 'DOT Copilot'}
-              </h1>
-            )}
+            <h1 className="text-lg font-semibold text-gray-900">
+              {filteredNavItems.find(i => i.path === location.pathname)?.label ?? 'DOT Copilot'}
+            </h1>
           </div>
 
           <div className="flex items-center gap-3">
