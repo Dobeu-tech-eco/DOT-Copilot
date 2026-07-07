@@ -11,6 +11,7 @@ interface SmsResult {
   success: boolean;
   messageId?: string;
   error?: string;
+  reason?: string;
 }
 
 class SmsService {
@@ -55,12 +56,13 @@ class SmsService {
     }
 
     if (!this.isConfigured) {
-      // Log instead of sending
+      // Log instead of sending, and report failure so callers don't treat
+      // this as a delivered message.
       console.log('=== SMS (not sent - Twilio not configured) ===');
       console.log(`To: ${normalizedNumber}`);
       console.log(`Message: ${message}`);
       console.log('==============================================');
-      return { success: true, messageId: 'mock-' + Date.now() };
+      return { success: false, error: 'SMS service not configured', reason: 'not_configured' };
     }
 
     try {

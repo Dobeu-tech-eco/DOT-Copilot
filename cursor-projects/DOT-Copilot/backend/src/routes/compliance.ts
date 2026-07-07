@@ -3,6 +3,7 @@ import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { z } from 'zod';
+import { assertFleetOwnership, isPlatformAdmin } from '../middleware/fleetScope';
 
 const router = Router();
 
@@ -126,7 +127,23 @@ router.post('/requirements', requireRole('ADMIN', 'SUPERVISOR'), async (req: Aut
 router.put('/requirements/:id', requireRole('ADMIN', 'SUPERVISOR'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const user = req.user!;
     const validated = complianceRequirementSchema.partial().parse(req.body);
+
+    const existing = await prisma.complianceRequirement.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Requirement not found' });
+    }
+
+    // System-wide templates (fleetId === null) may only be edited by platform admins.
+    // Fleet-specific requirements may only be edited by members of that fleet.
+    if (existing.fleetId === null) {
+      if (!isPlatformAdmin(user)) {
+        return res.status(404).json({ error: 'Requirement not found' });
+      }
+    } else if (!assertFleetOwnership(existing, user, res, 'Requirement not found')) {
+      return;
+    }
 
     const requirement = await prisma.complianceRequirement.update({
       where: { id },
@@ -153,6 +170,22 @@ router.put('/requirements/:id', requireRole('ADMIN', 'SUPERVISOR'), async (req: 
 router.delete('/requirements/:id', requireRole('ADMIN'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const user = req.user!;
+
+    const existing = await prisma.complianceRequirement.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Requirement not found' });
+    }
+
+    // Fleet-scoped requirements may only be deleted by an admin of that fleet;
+    // system-wide templates (fleetId === null) require a platform-wide admin
+    // (no fleetId on the token).
+    if (existing.fleetId !== null && !assertFleetOwnership(existing, user, res, 'Requirement not found')) {
+      return;
+    }
+    if (existing.fleetId === null && user.fleetId) {
+      return res.status(404).json({ error: 'Requirement not found' });
+    }
 
     await prisma.complianceRequirement.delete({
       where: { id },
@@ -314,6 +347,13 @@ router.get('/drivers/:userId', async (req: AuthenticatedRequest, res: Response) 
       return res.status(403).json({ error: 'Forbidden' });
     }
 
+    if (user.role !== 'DRIVER') {
+      const targetUser = await prisma.user.findUnique({ where: { id: userId }, select: { fleetId: true } });
+      if (!targetUser || !assertFleetOwnership(targetUser, user, res, 'Driver not found')) {
+        return;
+      }
+    }
+
     const driverCompliance = await prisma.driverCompliance.findMany({
       where: { userId },
       include: {
@@ -366,6 +406,13 @@ router.put('/drivers/:userId/requirements/:requirementId', requireRole('ADMIN', 
     const { userId, requirementId } = req.params;
     const { status, completedDate, expirationDate, hoursCompleted, certificateUrl, notes } = req.body;
     const currentUser = req.user!;
+
+    // SECURITY: Ensure the target driver belongs to the caller's fleet before
+    // allowing their compliance record to be created/updated.
+    const targetUser = await prisma.user.findUnique({ where: { id: userId }, select: { fleetId: true } });
+    if (!targetUser || !assertFleetOwnership(targetUser, currentUser, res, 'Driver not found')) {
+      return;
+    }
 
     const compliance = await prisma.driverCompliance.upsert({
       where: {

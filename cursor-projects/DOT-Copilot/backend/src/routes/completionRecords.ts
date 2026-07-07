@@ -4,6 +4,7 @@ import prisma from '../db';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { validateBody, createCompletionRecordSchema, paginationSchema, validateQuery } from '../schemas';
 import { z } from 'zod';
+import { assertFleetOwnership, isPlatformAdmin } from '../middleware/fleetScope';
 
 const router = Router();
 
@@ -27,6 +28,11 @@ router.get('/', validateQuery(querySchema), async (req: AuthenticatedRequest, re
       where.userId = req.user.userId;
     } else if (userId) {
       where.userId = userId;
+    }
+
+    // SECURITY: Non-admin callers are always confined to their own fleet.
+    if (!isPlatformAdmin(req.user)) {
+      where.fleetId = req.user?.fleetId ?? '__NO_FLEET__';
     }
 
     if (lessonId) where.lessonId = lessonId;
@@ -132,6 +138,11 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     // Check access for drivers
     if (req.user?.role === 'DRIVER' && record.userId !== req.user.userId) {
       return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    // SECURITY: Non-drivers may only view completion records within their own fleet.
+    if (req.user?.role !== 'DRIVER' && !assertFleetOwnership(record, req.user, res, 'Completion record not found')) {
+      return;
     }
 
     res.json({ data: record });

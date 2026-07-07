@@ -4,6 +4,7 @@ import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { validateBody, createModuleSchema, updateModuleSchema, paginationSchema, validateQuery } from '../schemas';
 import { z } from 'zod';
+import { assertFleetOwnership, isPlatformAdmin } from '../middleware/fleetScope';
 
 const router = Router();
 
@@ -20,7 +21,15 @@ router.get('/', validateQuery(querySchema), async (req: AuthenticatedRequest, re
     const skip = (page - 1) * limit;
 
     const where: any = {};
-    if (fleetId) where.fleetId = fleetId;
+
+    // SECURITY: Non-admin callers are always confined to their own fleet,
+    // regardless of any fleetId query param they pass.
+    if (isPlatformAdmin(req.user)) {
+      if (fleetId) where.fleetId = fleetId;
+    } else {
+      where.fleetId = req.user?.fleetId ?? '__NO_FLEET__';
+    }
+
     if (trainingProgramId) where.trainingProgramId = trainingProgramId;
 
     const [modules, total] = await Promise.all([
@@ -66,8 +75,8 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       },
     });
 
-    if (!module) {
-      return res.status(404).json({ error: 'Module not found' });
+    if (!module || !assertFleetOwnership(module, req.user, res, 'Module not found')) {
+      return;
     }
 
     res.json({ data: module });
@@ -99,8 +108,8 @@ router.put('/:id', requireRole('ADMIN', 'SUPERVISOR'), validateBody(updateModule
     const { id } = req.params;
 
     const existing = await prisma.module.findUnique({ where: { id } });
-    if (!existing) {
-      return res.status(404).json({ error: 'Module not found' });
+    if (!existing || !assertFleetOwnership(existing, req.user, res, 'Module not found')) {
+      return;
     }
 
     const module = await prisma.module.update({
@@ -124,8 +133,8 @@ router.delete('/:id', requireRole('ADMIN'), async (req: AuthenticatedRequest, re
     const { id } = req.params;
 
     const existing = await prisma.module.findUnique({ where: { id } });
-    if (!existing) {
-      return res.status(404).json({ error: 'Module not found' });
+    if (!existing || !assertFleetOwnership(existing, req.user, res, 'Module not found')) {
+      return;
     }
 
     await prisma.module.delete({ where: { id } });

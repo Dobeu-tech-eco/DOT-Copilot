@@ -3,6 +3,7 @@ import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { z } from 'zod';
+import { assertFleetOwnership } from '../middleware/fleetScope';
 
 const router = Router();
 
@@ -137,8 +138,8 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    if (user.role !== 'DRIVER' && document.fleetId !== user.fleetId) {
-      return res.status(403).json({ error: 'Forbidden' });
+    if (user.role !== 'DRIVER' && !assertFleetOwnership(document, user, res, 'Document not found')) {
+      return;
     }
 
     res.json({ data: document });
@@ -230,6 +231,10 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
+    if (user.role !== 'DRIVER' && !assertFleetOwnership(existingDoc, user, res, 'Document not found')) {
+      return;
+    }
+
     // Recalculate status if expiration date changed
     let status = existingDoc.status;
     if (validated.expirationDate) {
@@ -281,6 +286,12 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
 router.delete('/:id', requireRole('ADMIN', 'SUPERVISOR'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const user = req.user!;
+
+    const existingDoc = await prisma.driverDocument.findUnique({ where: { id } });
+    if (!existingDoc || !assertFleetOwnership(existingDoc, user, res, 'Document not found')) {
+      return;
+    }
 
     await prisma.driverDocument.delete({
       where: { id },
@@ -307,6 +318,11 @@ router.post('/:id/verify', requireRole('ADMIN', 'SUPERVISOR'), async (req: Authe
   try {
     const { id } = req.params;
     const user = req.user!;
+
+    const existingDoc = await prisma.driverDocument.findUnique({ where: { id } });
+    if (!existingDoc || !assertFleetOwnership(existingDoc, user, res, 'Document not found')) {
+      return;
+    }
 
     const document = await prisma.driverDocument.update({
       where: { id },
@@ -463,6 +479,14 @@ router.get('/user/:userId', async (req: AuthenticatedRequest, res: Response) => 
     // Drivers can only see their own
     if (user.role === 'DRIVER' && user.userId !== userId) {
       return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    // Non-drivers may only pull documents for users within their own fleet.
+    if (user.role !== 'DRIVER') {
+      const targetUser = await prisma.user.findUnique({ where: { id: userId }, select: { fleetId: true } });
+      if (!targetUser || !assertFleetOwnership(targetUser, user, res, 'User not found')) {
+        return;
+      }
     }
 
     const documents = await prisma.driverDocument.findMany({

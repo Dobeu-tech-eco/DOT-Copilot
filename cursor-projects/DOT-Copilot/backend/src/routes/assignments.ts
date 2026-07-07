@@ -4,6 +4,7 @@ import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { validateBody, createAssignmentSchema, updateAssignmentSchema, paginationSchema, validateQuery } from '../schemas';
 import { z } from 'zod';
+import { assertFleetOwnership, isPlatformAdmin } from '../middleware/fleetScope';
 
 const router = Router();
 
@@ -21,15 +22,22 @@ router.get('/', validateQuery(querySchema), async (req: AuthenticatedRequest, re
     const skip = (page - 1) * limit;
 
     const where: any = {};
-    
+
     // Non-admin users can only see their own assignments
     if (req.user?.role === 'DRIVER') {
       where.userId = req.user.userId;
     } else if (userId) {
       where.userId = userId;
     }
-    
-    if (fleetId) where.fleetId = fleetId;
+
+    // SECURITY: Non-admin callers are always confined to their own fleet,
+    // regardless of any fleetId query param they pass.
+    if (isPlatformAdmin(req.user)) {
+      if (fleetId) where.fleetId = fleetId;
+    } else {
+      where.fleetId = req.user?.fleetId ?? '__NO_FLEET__';
+    }
+
     if (status) where.status = status;
 
     const [assignments, total] = await Promise.all([
@@ -83,6 +91,10 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     // Check access for drivers
     if (req.user?.role === 'DRIVER' && assignment.userId !== req.user.userId) {
       return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    if (req.user?.role !== 'DRIVER' && !assertFleetOwnership(assignment, req.user, res, 'Assignment not found')) {
+      return;
     }
 
     res.json({ data: assignment });
@@ -141,6 +153,8 @@ router.put('/:id', validateBody(updateAssignmentSchema), async (req: Authenticat
       if (Object.keys(req.body).length > 1 || !status) {
         return res.status(403).json({ error: 'Drivers can only update assignment status' });
       }
+    } else if (!assertFleetOwnership(existing, req.user, res, 'Assignment not found')) {
+      return;
     }
 
     const assignment = await prisma.assignment.update({
@@ -166,8 +180,8 @@ router.delete('/:id', requireRole('ADMIN'), async (req: AuthenticatedRequest, re
     const { id } = req.params;
 
     const existing = await prisma.assignment.findUnique({ where: { id } });
-    if (!existing) {
-      return res.status(404).json({ error: 'Assignment not found' });
+    if (!existing || !assertFleetOwnership(existing, req.user, res, 'Assignment not found')) {
+      return;
     }
 
     await prisma.assignment.delete({ where: { id } });
