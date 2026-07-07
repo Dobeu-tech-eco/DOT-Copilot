@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { supabase } from '../lib/supabase'
 import { ArrowLeft, ArrowRight, Building2, CheckCircle2, UserPlus } from 'lucide-react'
 
 interface FleetStepData {
@@ -106,13 +106,13 @@ export function NewFleetWizard() {
     <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
       <div>
         <button
-          onClick={() => navigate('/admin')}
+          onClick={() => navigate('/fleets')}
           className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-3"
         >
           <ArrowLeft size={14} /> Back to Fleets
         </button>
         <p className="text-xs font-medium uppercase tracking-wider text-amber-600 mb-1">
-          DOT-Copilot Platform Admin &middot; Dobeu Tech Solutions
+          DOT-Copilot Platform Administration &middot; Dobeu Tech Solutions
         </p>
         <h1 className="text-2xl font-bold text-gray-900">New Fleet</h1>
         <p className="text-sm text-gray-500 mt-1">Provision a new customer fleet and invite its first administrator</p>
@@ -257,7 +257,7 @@ export function NewFleetWizard() {
             <p className="text-sm text-gray-500 mt-1">Invite sent to {invitedEmail}</p>
           </div>
           <div className="flex justify-center gap-3 pt-2">
-            <button onClick={() => navigate('/admin')} className="btn-primary">
+            <button onClick={() => navigate('/fleets')} className="btn-primary">
               Back to Fleets
             </button>
           </div>
