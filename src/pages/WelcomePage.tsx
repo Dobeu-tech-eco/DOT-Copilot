@@ -41,6 +41,16 @@ export function WelcomePage() {
     e.preventDefault()
     setError(null)
 
+    // Defensive re-check: if the invite session has expired or was never
+    // established, don't let the submit hang silently — surface a clear
+    // error and fall back to the no-session state instead.
+    const { data: sessionData } = await supabase.auth.getSession()
+    if (!sessionData.session) {
+      setStatus('no-session')
+      setError('This invite link is invalid or expired. Ask your administrator to re-send the invite.')
+      return
+    }
+
     if (password.length < 8) {
       setError('Password must be at least 8 characters')
       return
@@ -93,8 +103,7 @@ export function WelcomePage() {
             </div>
             <h2 className="text-xl font-bold text-white">Invite link expired or invalid</h2>
             <p className="text-slate-400 text-sm">
-              This invitation link is no longer valid. Please ask your administrator to send a new invite,
-              or sign in if you already have an account.
+              {error ?? 'This invite link is invalid or expired. Ask your administrator to re-send the invite.'}
             </p>
             <button onClick={() => navigate('/')} className="btn-primary mt-2">
               Go to Sign In
