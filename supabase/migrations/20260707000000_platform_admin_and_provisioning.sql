@@ -2,50 +2,23 @@
   # Platform Admin Role + Fleet Provisioning Support
 
   Adds a platform-admin concept so Dobeu staff can provision new customer
-  fleets (e.g. Baldor) from an admin dashboard, independent of any single
-  fleet's membership. Platform admins are Dobeu employees, not customer
-  users, and need cross-fleet SELECT/INSERT/UPDATE access to `fleets` and
-  cross-fleet SELECT/UPDATE access to `profiles` so they can create new
-  fleets and manage the initial admin users invited into them.
+  fleets (e.g. Baldor) from an admin dashboard. Platform admins are Dobeu
+  employees, not customer users, and need cross-fleet access to `fleets`
+  and `profiles` to create new fleets and manage invited admin users.
 
-  1. New column
-     - `profiles.is_platform_admin` (boolean, default false) — flags Dobeu
-       staff accounts. Not fleet-scoped; independent of `role`.
+  AMENDED during pre-apply review: an earlier draft used `true OR
+  is_platform_admin()` in the fleets policies, which would have re-loosened
+  the tenant-scoped policies from 20260227014402/20260227034110 back to
+  USING (true). This version preserves the live tenant-scoped semantics and
+  adds the platform-admin grant via OR. This file matches the SQL applied
+  to project qcsfncdgmjuvedbyejhp on 2026-07-07.
 
-  2. New helper function
-     - `public.is_platform_admin()` — SECURITY DEFINER function that checks
-       whether the calling user (auth.uid()) has is_platform_admin = true.
-       SECURITY DEFINER + fixed search_path avoids recursive-RLS issues when
-       referenced from policies on `profiles` itself, and avoids search_path
-       hijacking.
-
-  3. New RLS policies (additive; consolidated with existing policies where
-     they share the same table/action/role, following the OR-merge style
-     used in migration 20260227034110_consolidate_permissive_policies.sql)
-     - fleets: platform admins get SELECT/INSERT/UPDATE across all fleets
-       (merged into the existing "authenticated users" / "admins" policies).
-     - profiles: platform admins get SELECT/UPDATE across all fleets (merged
-       into the existing "own or fleet" policies from the consolidation
-       migration).
-
-  4. Updated trigger
-     - `public.handle_new_user()` now reads `fleet_id`, `role`, and
-       `full_name` from `NEW.raw_user_meta_data` (as supplied by
-       `auth.admin.inviteUserByEmail`'s `data` option) so invited users land
-       with the correct fleet_id + role instead of always defaulting to
-       fleet_id = NULL / role = 'DRIVER'. Falls back to prior defaults when
-       metadata is absent, and continues to read the legacy `name` key for
-       backward compatibility with the existing signup flow.
-
-  5. Seed
-     - Marks the initial Dobeu platform admin accounts.
-
-  Security notes:
-  - is_platform_admin() is SECURITY DEFINER so it can read profiles without
-    being blocked by RLS on profiles, but it only ever evaluates against
-    auth.uid() — callers cannot pass an arbitrary user id.
-  - All new policies are scoped to the `authenticated` role, matching
-    existing conventions.
+  Contents:
+  1. profiles.is_platform_admin column (+ partial index)
+  2. public.is_platform_admin() SECURITY DEFINER helper (auth.uid() only)
+  3. Tenant-preserving RLS updates on fleets/profiles with platform-admin OR
+  4. handle_new_user() reads invite metadata (fleet_id/role/full_name)
+  5. Seed initial Dobeu platform admins
 */
 
 -- ============================================
@@ -80,12 +53,17 @@ GRANT EXECUTE ON FUNCTION public.is_platform_admin() TO authenticated;
 -- ============================================
 -- FLEETS: platform-admin-aware policies
 -- ============================================
+-- Preserve the tenant-scoped semantics from 20260227014402/20260227034110
+-- and add the platform-admin grant via OR.
 DROP POLICY IF EXISTS "Authenticated users can view fleets" ON public.fleets;
 CREATE POLICY "Authenticated users can view fleets"
   ON public.fleets FOR SELECT
   TO authenticated
   USING (
-    true
+    id IN (
+      SELECT profiles.fleet_id FROM public.profiles
+      WHERE profiles.id = (SELECT auth.uid())
+    )
     OR public.is_platform_admin()
   );
 
@@ -94,7 +72,10 @@ CREATE POLICY "Admins can insert fleets"
   ON public.fleets FOR INSERT
   TO authenticated
   WITH CHECK (
-    true
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = (SELECT auth.uid()) AND profiles.role = 'ADMIN'
+    )
     OR public.is_platform_admin()
   );
 
@@ -103,18 +84,24 @@ CREATE POLICY "Admins can update fleets"
   ON public.fleets FOR UPDATE
   TO authenticated
   USING (
-    true
+    id IN (
+      SELECT profiles.fleet_id FROM public.profiles
+      WHERE profiles.id = (SELECT auth.uid())
+        AND profiles.role = ANY (ARRAY['ADMIN','BRANCH_MANAGER'])
+    )
     OR public.is_platform_admin()
   )
   WITH CHECK (
-    true
+    id IN (
+      SELECT profiles.fleet_id FROM public.profiles
+      WHERE profiles.id = (SELECT auth.uid())
+        AND profiles.role = ANY (ARRAY['ADMIN','BRANCH_MANAGER'])
+    )
     OR public.is_platform_admin()
   );
 
 -- ============================================
 -- PROFILES: platform-admin-aware policies
--- (merged with the consolidated "own or fleet" policies from
---  20260227034110_consolidate_permissive_policies.sql)
 -- ============================================
 DROP POLICY IF EXISTS "Users can view own or fleet profiles" ON public.profiles;
 CREATE POLICY "Users can view own, fleet, or all profiles as platform admin"
@@ -174,10 +161,6 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
--- Trigger already exists from the core schema migration (on_auth_user_created);
--- re-creating the function body above is sufficient since the trigger just
--- calls public.handle_new_user().
 
 -- ============================================
 -- SEED: initial platform admins
