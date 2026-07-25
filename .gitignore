@@ -44,3 +44,6 @@ Thumbs.db
 # Node
 node_modules/
 .vercel/
+
+# Ruflo harness runtime state (not app code)
+.claude-flow/
