@@ -7,6 +7,7 @@ import { AdminFleetsPage } from './AdminFleetsPage'
 import { NewFleetWizard } from './NewFleetWizard'
 import { AdminFleetDetailPage } from './AdminFleetDetailPage'
 import { PlatformAdminRoute } from './PlatformAdminRoute'
+import { ErrorBoundary } from '../components/ErrorBoundary'
 
 function AdminPublicRoute({ children }: { children: React.ReactNode }) {
   const [checking, setChecking] = useState(true)
@@ -55,18 +56,20 @@ export default function AdminApp() {
   }, [])
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<AdminPublicRoute><AdminLoginPage /></AdminPublicRoute>} />
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<AdminPublicRoute><AdminLoginPage /></AdminPublicRoute>} />
 
-        <Route element={<PlatformAdminRoute><AdminLayout /></PlatformAdminRoute>}>
-          <Route path="/fleets" element={<AdminFleetsPage />} />
-          <Route path="/fleets/new" element={<NewFleetWizard />} />
-          <Route path="/fleets/:id" element={<AdminFleetDetailPage />} />
-        </Route>
+          <Route element={<PlatformAdminRoute><AdminLayout /></PlatformAdminRoute>}>
+            <Route path="/fleets" element={<AdminFleetsPage />} />
+            <Route path="/fleets/new" element={<NewFleetWizard />} />
+            <Route path="/fleets/:id" element={<AdminFleetDetailPage />} />
+          </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }
