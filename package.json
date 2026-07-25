@@ -38,7 +38,7 @@
     "fdir": "^6.5.0",
     "jsdom": "^29.1.1",
     "postcss": "^8.5.8",
-    "tailwindcss": "^3.4.17",
+    "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
     "vite": "^6.0.0",
     "vitest": "^4.1.10"
