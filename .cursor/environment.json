@@ -1,0 +1,16 @@
+{
+  "name": "DOT-Copilot",
+  "install": "bash .cursor/setup.sh",
+  "start": "sudo pg_ctlcluster $(ls /usr/lib/postgresql | sort -n | tail -1) main start 2>/dev/null || true",
+  "terminals": [
+    {
+      "name": "dev",
+      "command": "npm run dev",
+      "description": "Runs the Express + Prisma backend (http://localhost:3001) and the Vite frontend (http://localhost:5000) together via scripts/start.mjs."
+    }
+  ],
+  "ports": [
+    { "name": "frontend", "port": 5000 },
+    { "name": "backend", "port": 3001 }
+  ]
+}
