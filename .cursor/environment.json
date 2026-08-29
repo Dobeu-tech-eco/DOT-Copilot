@@ -1,7 +1,7 @@
 {
   "name": "DOT-Copilot",
   "install": "bash .cursor/setup.sh",
-  "start": "sudo pg_ctlcluster $(ls /usr/lib/postgresql | sort -n | tail -1) main start 2>/dev/null || true",
+  "start": "bash .cursor/start.sh",
   "terminals": [
     {
       "name": "dev",
