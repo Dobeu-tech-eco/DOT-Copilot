@@ -1,0 +1,16 @@
+{
+  "name": "DOT-Copilot",
+  "install": "bash .cursor/setup.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "dev",
+      "command": "npm run dev",
+      "description": "Runs the Express + Prisma backend (http://localhost:3001) and the Vite frontend (http://localhost:5000) together via scripts/start.mjs."
+    }
+  ],
+  "ports": [
+    { "name": "frontend", "port": 5000 },
+    { "name": "backend", "port": 3001 }
+  ]
+}

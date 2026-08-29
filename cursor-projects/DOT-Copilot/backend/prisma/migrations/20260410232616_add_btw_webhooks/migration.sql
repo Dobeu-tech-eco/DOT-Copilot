@@ -41,18 +41,34 @@ CREATE TABLE IF NOT EXISTS "btw_sessions" (
     CONSTRAINT "btw_sessions_status_check" CHECK ("status" IN ('pending', 'completed', 'cancelled'))
 );
 
--- Foreign keys
-ALTER TABLE "btw_sessions"
-    ADD CONSTRAINT "btw_sessions_trainee_id_fkey"
-    FOREIGN KEY ("trainee_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- Ensure fleet tenancy column exists when btw_sessions was created by an
+-- earlier migration (init) that predates the fleet_id column.
+ALTER TABLE "btw_sessions" ADD COLUMN IF NOT EXISTS "fleet_id" TEXT;
 
-ALTER TABLE "btw_sessions"
-    ADD CONSTRAINT "btw_sessions_trainer_id_fkey"
-    FOREIGN KEY ("trainer_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- Foreign keys (idempotent: the init migration may already define these)
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'btw_sessions_trainee_id_fkey') THEN
+        ALTER TABLE "btw_sessions"
+            ADD CONSTRAINT "btw_sessions_trainee_id_fkey"
+            FOREIGN KEY ("trainee_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
 
-ALTER TABLE "btw_sessions"
-    ADD CONSTRAINT "btw_sessions_fleet_id_fkey"
-    FOREIGN KEY ("fleet_id") REFERENCES "fleets"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'btw_sessions_trainer_id_fkey') THEN
+        ALTER TABLE "btw_sessions"
+            ADD CONSTRAINT "btw_sessions_trainer_id_fkey"
+            FOREIGN KEY ("trainer_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'btw_sessions_fleet_id_fkey') THEN
+        ALTER TABLE "btw_sessions"
+            ADD CONSTRAINT "btw_sessions_fleet_id_fkey"
+            FOREIGN KEY ("fleet_id") REFERENCES "fleets"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS "btw_sessions_trainee_id_idx"   ON "btw_sessions"("trainee_id");
@@ -87,13 +103,21 @@ CREATE TABLE IF NOT EXISTS "webhooks" (
     CONSTRAINT "webhooks_pkey" PRIMARY KEY ("id")
 );
 
-ALTER TABLE "webhooks"
-    ADD CONSTRAINT "webhooks_fleet_id_fkey"
-    FOREIGN KEY ("fleet_id") REFERENCES "fleets"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'webhooks_fleet_id_fkey') THEN
+        ALTER TABLE "webhooks"
+            ADD CONSTRAINT "webhooks_fleet_id_fkey"
+            FOREIGN KEY ("fleet_id") REFERENCES "fleets"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
 
-ALTER TABLE "webhooks"
-    ADD CONSTRAINT "webhooks_created_by_fkey"
-    FOREIGN KEY ("created_by") REFERENCES "users"("id") ON UPDATE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'webhooks_created_by_fkey') THEN
+        ALTER TABLE "webhooks"
+            ADD CONSTRAINT "webhooks_created_by_fkey"
+            FOREIGN KEY ("created_by") REFERENCES "users"("id") ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS "webhooks_fleet_id_idx"    ON "webhooks"("fleet_id");
 CREATE INDEX IF NOT EXISTS "webhooks_is_active_idx"   ON "webhooks"("fleet_id", "is_active")
@@ -120,9 +144,13 @@ CREATE TABLE IF NOT EXISTS "webhook_deliveries" (
     CONSTRAINT "webhook_deliveries_pkey" PRIMARY KEY ("id")
 );
 
-ALTER TABLE "webhook_deliveries"
-    ADD CONSTRAINT "webhook_deliveries_webhook_id_fkey"
-    FOREIGN KEY ("webhook_id") REFERENCES "webhooks"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'webhook_deliveries_webhook_id_fkey') THEN
+        ALTER TABLE "webhook_deliveries"
+            ADD CONSTRAINT "webhook_deliveries_webhook_id_fkey"
+            FOREIGN KEY ("webhook_id") REFERENCES "webhooks"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS "webhook_deliveries_webhook_id_created_at_idx"
     ON "webhook_deliveries"("webhook_id", "created_at" DESC);
