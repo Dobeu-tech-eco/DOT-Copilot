@@ -169,5 +169,18 @@ describe('Compliance API tenant isolation', () => {
       expect(res.status).toBe(404);
       expect(prisma.driverCompliance.upsert).not.toHaveBeenCalled();
     });
+
+    it('returns 404 when the requirement belongs to another fleet', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ fleetId: 'fleet-a' });
+      (prisma.complianceRequirement.findUnique as jest.Mock).mockResolvedValue({ fleetId: 'fleet-b' });
+
+      const res = await request(app)
+        .put('/api/compliance/drivers/driver-a/requirements/req-b')
+        .set('Authorization', `Bearer ${token('SUPERVISOR', 'fleet-a')}`)
+        .send({ status: 'COMPLIANT' });
+
+      expect(res.status).toBe(404);
+      expect(prisma.driverCompliance.upsert).not.toHaveBeenCalled();
+    });
   });
 });

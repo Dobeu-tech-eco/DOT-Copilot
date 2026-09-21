@@ -61,7 +61,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
           where: { id: userId as string },
           select: { fleetId: true },
         });
-        if (!targetUser || !assertFleetOwnership(targetUser, user, res, 'User not found')) {
+        if (!assertFleetOwnership(targetUser, user, res, 'User not found')) {
           return;
         }
       }
@@ -214,7 +214,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
           where: { id: validated.userId },
           select: { fleetId: true },
         });
-        if (!targetUser || !assertFleetOwnership(targetUser, user, res, 'User not found')) {
+        if (!assertFleetOwnership(targetUser, user, res, 'User not found')) {
           return;
         }
       }

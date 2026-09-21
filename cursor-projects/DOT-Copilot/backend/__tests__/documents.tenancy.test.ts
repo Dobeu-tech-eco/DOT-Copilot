@@ -82,6 +82,24 @@ describe('Documents API tenant isolation', () => {
     });
   });
 
+  describe('POST /', () => {
+    it('does not create a document for a user in another fleet', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ fleetId: 'fleet-b' });
+
+      const res = await request(app)
+        .post('/api/documents')
+        .set('Authorization', `Bearer ${token('SUPERVISOR', 'fleet-a')}`)
+        .send({
+          userId: 'driver-b',
+          documentType: 'CDL',
+          expirationDate: '2027-09-21T00:00:00.000Z',
+        });
+
+      expect(res.status).toBe(404);
+      expect(prisma.driverDocument.create).not.toHaveBeenCalled();
+    });
+  });
+
   describe('DELETE /:id', () => {
     it('returns 404 (not delete) when the document belongs to another fleet', async () => {
       (prisma.driverDocument.findUnique as jest.Mock).mockResolvedValue({
