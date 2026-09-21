@@ -69,6 +69,16 @@ describe('Fleets API tenant isolation', () => {
   });
 
   describe('GET /:id', () => {
+    it('returns 404 when the fleet does not exist', async () => {
+      (prisma.fleet.findUnique as jest.Mock).mockResolvedValue(null);
+
+      const res = await request(app)
+        .get('/api/fleets/missing-fleet')
+        .set('Authorization', `Bearer ${token('SUPERVISOR', 'fleet-a')}`);
+
+      expect(res.status).toBe(404);
+    });
+
     it('returns 404 when the fleet does not match the caller fleet', async () => {
       (prisma.fleet.findUnique as jest.Mock).mockResolvedValue({
         id: 'fleet-b',

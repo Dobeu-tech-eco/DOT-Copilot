@@ -152,6 +152,25 @@ export function assertFleetOwnershipByResolvedId(
 }
 
 /**
+ * Ensures a referenced record belongs to the fleet selected for a write.
+ * This is deliberately independent of the caller's role: platform admins may
+ * access every fleet, but they still must not create cross-fleet relations.
+ */
+export function assertRecordInFleet(
+  record: { fleetId?: string | null } | null | undefined,
+  expectedFleetId: string,
+  res: Response,
+  notFoundMessage: string = 'Not found'
+): boolean {
+  if (!record || record.fleetId !== expectedFleetId) {
+    sendError(res, notFoundMessage, 'NOT_FOUND', 404);
+    return false;
+  }
+
+  return true;
+}
+
+/**
  * Fetches a record by id via the given Prisma delegate and verifies fleet
  * ownership in one step. Returns the record if the caller may access it,
  * or null after sending an appropriate 404 response.
@@ -182,12 +201,22 @@ export async function loadFleetScoped<
 }
 
 /**
- * Helper for the common "fleetId ?? undefined" pattern used when a role
- * (e.g. ADMIN with no fleet) is allowed to omit fleet scoping, matching
- * existing conventions across compliance.ts / driverStats.ts.
+ * Returns the fleet value to use in Prisma filters.
+ *
+ * Platform admins intentionally receive `undefined`, which Prisma treats as
+ * an omitted filter. Every other caller is scoped to their fleet, or to a
+ * sentinel that cannot match when their token has no fleet context. Using
+ * `user.fleetId ?? undefined` directly for non-admin users is unsafe because
+ * Prisma drops the filter and returns rows from every fleet.
  */
-export function fleetFilterValue(user: { fleetId?: string | null } | undefined | null): string | undefined {
-  return user?.fleetId ?? undefined;
+export function fleetFilterValue(
+  user: { role: string; fleetId?: string | null } | undefined | null
+): string | undefined {
+  if (isPlatformAdmin(user)) {
+    return undefined;
+  }
+
+  return user?.fleetId ?? '__NO_FLEET__';
 }
 
 export default {
@@ -196,6 +225,7 @@ export default {
   scopeWhereToFleetViaRelation,
   assertFleetOwnership,
   assertFleetOwnershipByResolvedId,
+  assertRecordInFleet,
   loadFleetScoped,
   fleetFilterValue,
 };
