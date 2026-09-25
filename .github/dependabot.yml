@@ -48,9 +48,13 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
-      - "frontend"
     commit-message:
       prefix: "chore(deps)"
+    # DTS-1725: hold vitest major bumps until the deliberate Vitest 5 migration.
+    # Vitest 5 needs Node ^22.12; CI, Azure, and Bicep still run Node 20.
+    ignore:
+      - dependency-name: "vitest"
+        update-types: ["version-update:semver-major"]
     groups:
       development:
         dependency-type: "development"
