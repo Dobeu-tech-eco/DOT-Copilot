@@ -79,7 +79,7 @@ export function DriverProfileDrawer({ driver, assignments, complianceRecords, do
         <div className="flex-1 overflow-y-auto">
           <div className="px-5 py-5 border-b border-gray-100">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-baldor-100 text-baldor-700 flex items-center justify-center text-xl font-semibold shrink-0">
+              <div className="w-14 h-14 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xl font-semibold shrink-0">
                 {initials}
               </div>
               <div className="min-w-0">

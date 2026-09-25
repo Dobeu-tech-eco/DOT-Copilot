@@ -335,7 +335,7 @@ export function CompliancePage() {
                       <td className="px-5 py-3.5 text-sm text-gray-600">{c.verified_by ?? 'Pending'}</td>
                       {canManageCompliance && (
                         <td className="px-5 py-3.5 text-right">
-                          <button onClick={() => openEditRecord(c)} className="p-1.5 text-gray-400 hover:text-baldor-600 hover:bg-baldor-50 rounded-lg transition-colors">
+                          <button onClick={() => openEditRecord(c)} className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors">
                             <Pencil size={15} />
                           </button>
                         </td>
@@ -382,7 +382,7 @@ export function CompliancePage() {
                         {canManageCompliance && (
                           <td className="px-5 py-3.5 text-right">
                             <div className="flex items-center justify-end gap-1">
-                              <button onClick={() => openEditDoc(d)} className="p-1.5 text-gray-400 hover:text-baldor-600 hover:bg-baldor-50 rounded-lg transition-colors">
+                              <button onClick={() => openEditDoc(d)} className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors">
                                 <Pencil size={15} />
                               </button>
                               <button onClick={() => setDeletingDoc(d)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
@@ -434,7 +434,7 @@ export function CompliancePage() {
                       </td>
                       {isAdmin && (
                         <td className="px-5 py-3.5 text-right">
-                          <button onClick={() => openEditReq(r)} className="p-1.5 text-gray-400 hover:text-baldor-600 hover:bg-baldor-50 rounded-lg transition-colors">
+                          <button onClick={() => openEditReq(r)} className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors">
                             <Pencil size={15} />
                           </button>
                         </td>

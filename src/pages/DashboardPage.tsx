@@ -4,6 +4,7 @@ import { useAppStore } from '../store/appStore'
 import { StatsCard } from '../components/StatsCard'
 import { ComplianceBadge, AssignmentBadge } from '../components/StatusBadge'
 import { LoadingSpinner } from '../components/LoadingSpinner'
+import { useTheme } from '../components/ThemeProvider'
 import {
   Users,
   Truck,
@@ -19,10 +20,9 @@ import {
   PieChart, Pie, Cell,
 } from 'recharts'
 
-const CHART_COLORS = ['#3a8b45', '#5ca867', '#f59e0b', '#ef4444']
-
 export function DashboardPage() {
   const { user } = useAuthStore()
+  const theme = useTheme()
   const {
     dashboardStats, assignments, complianceRecords, documents,
     loading, fetchDashboardStats, fetchAssignments, fetchComplianceRecords, fetchDocuments,
@@ -71,12 +71,13 @@ export function DashboardPage() {
       return exp > now && exp <= new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
     })
     .slice(0, 5)
+  const chartColors = [theme.colors[500], theme.colors[400], '#f59e0b', '#ef4444']
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Fleet Overview</h1>
-        <p className="text-sm text-gray-500 mt-1">Baldor Food Company - Fleet Management Dashboard</p>
+        <p className="text-sm text-gray-500 mt-1">{theme.displayName} - Fleet Management Dashboard</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -136,7 +137,7 @@ export function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card p-5">
           <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <TrendingUp size={16} className="text-baldor-600" />
+            <TrendingUp size={16} className="text-brand-600" />
             Assignments by Status
           </h3>
           <div className="h-56">
@@ -146,7 +147,7 @@ export function DashboardPage() {
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Bar dataKey="count" fill="#3a8b45" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="count" fill={theme.colors[500]} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -154,7 +155,7 @@ export function DashboardPage() {
 
         <div className="card p-5">
           <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <ShieldCheck size={16} className="text-baldor-600" />
+            <ShieldCheck size={16} className="text-brand-600" />
             Compliance Distribution
           </h3>
           {complianceDistribution.length > 0 ? (
@@ -172,7 +173,7 @@ export function DashboardPage() {
                       dataKey="value"
                     >
                       {complianceDistribution.map((_, i) => (
-                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                        <Cell key={i} fill={chartColors[i % chartColors.length]} />
                       ))}
                     </Pie>
                     <Tooltip />
@@ -182,7 +183,7 @@ export function DashboardPage() {
               <div className="space-y-2">
                 {complianceDistribution.map((entry, i) => (
                   <div key={entry.name} className="flex items-center gap-2 text-sm">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: chartColors[i % chartColors.length] }} />
                     <span className="text-gray-600">{entry.name}</span>
                     <span className="font-semibold text-gray-900">{entry.value}</span>
                   </div>

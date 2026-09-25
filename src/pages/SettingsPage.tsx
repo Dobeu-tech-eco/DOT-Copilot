@@ -49,11 +49,11 @@ export function SettingsPage() {
                 onClick={() => setTab(t.id)}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left ${
                   tab === t.id
-                    ? 'bg-baldor-50 text-baldor-700'
+                    ? 'bg-brand-50 text-brand-700'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 }`}
               >
-                <span className={tab === t.id ? 'text-baldor-600' : 'text-gray-400'}>
+                <span className={tab === t.id ? 'text-brand-600' : 'text-gray-400'}>
                   {t.icon}
                 </span>
                 {t.label}
