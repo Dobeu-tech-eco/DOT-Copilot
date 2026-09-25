@@ -114,7 +114,7 @@ export function NotificationsPage() {
             {filtered.map(n => (
               <div
                 key={n.id}
-                className={`flex items-start gap-4 px-5 py-4 transition-colors hover:bg-gray-50 ${!n.is_read ? 'bg-baldor-50/30' : ''}`}
+                className={`flex items-start gap-4 px-5 py-4 transition-colors hover:bg-gray-50 ${!n.is_read ? 'bg-brand-50/30' : ''}`}
               >
                 <div className="shrink-0 mt-0.5">
                   {typeIcons[n.notification_type] ?? <Bell size={16} className="text-gray-400" />}
@@ -126,7 +126,7 @@ export function NotificationsPage() {
                     <Clock size={12} className="text-gray-400" />
                     <span className="text-xs text-gray-400">{timeAgo(n.created_at)}</span>
                     {!n.is_read && (
-                      <span className="w-2 h-2 rounded-full bg-baldor-500" />
+                      <span className="w-2 h-2 rounded-full bg-brand-500" />
                     )}
                   </div>
                 </div>
@@ -134,7 +134,7 @@ export function NotificationsPage() {
                   {!n.is_read && (
                     <button
                       onClick={() => handleMarkRead(n)}
-                      className="p-1.5 text-gray-400 hover:text-baldor-600 hover:bg-baldor-50 rounded-lg transition-colors"
+                      className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
                       title="Mark as read"
                     >
                       <CheckCheck size={15} />

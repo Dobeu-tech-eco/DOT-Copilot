@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { Truck, Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { ThemeLogo } from '../components/ThemeLogo'
+import { useTheme } from '../components/ThemeProvider'
+import { Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react'
 
 type Status = 'checking' | 'ready' | 'no-session' | 'success'
 
 export function WelcomePage() {
   const navigate = useNavigate()
+  const { displayName } = useTheme()
   const [status, setStatus] = useState<Status>('checking')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -75,24 +78,23 @@ export function WelcomePage() {
 
   const inputClasses = `w-full px-3.5 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-white
     placeholder:text-slate-500 text-sm
-    focus:outline-none focus:ring-2 focus:ring-baldor-500/30 focus:border-baldor-500
+    focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500
     transition-all duration-150`
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-3 mb-8 justify-center">
-          <div className="w-10 h-10 rounded-xl bg-baldor-500 flex items-center justify-center">
-            <Truck size={22} className="text-white" />
-          </div>
+          <ThemeLogo className="w-10 h-10 rounded-xl" iconSize={22} />
           <div>
             <h1 className="text-xl font-bold text-white">DOT Copilot</h1>
+            <p className="text-sm text-slate-400">{displayName}</p>
           </div>
         </div>
 
         {status === 'checking' && (
           <div className="flex justify-center py-8">
-            <div className="w-8 h-8 border-2 border-slate-700 border-t-baldor-500 rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-slate-700 border-t-brand-500 rounded-full animate-spin" />
           </div>
         )}
 
@@ -162,7 +164,7 @@ export function WelcomePage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-2.5 rounded-lg bg-baldor-600 hover:bg-baldor-700 active:bg-baldor-800
+                className="w-full py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800
                            text-white font-medium text-sm transition-colors duration-150
                            disabled:opacity-50 disabled:cursor-not-allowed
                            flex items-center justify-center gap-2"

@@ -72,7 +72,7 @@ export function ProfileTab() {
       </div>
 
       <div className="flex items-center gap-4 p-5 bg-gray-50 rounded-xl">
-        <div className="w-16 h-16 rounded-full bg-baldor-600 flex items-center justify-center text-2xl font-semibold text-white flex-shrink-0">
+        <div className="w-16 h-16 rounded-full bg-brand-600 flex items-center justify-center text-2xl font-semibold text-white flex-shrink-0">
           {user?.name?.[0]?.toUpperCase() ?? user?.email?.[0]?.toUpperCase() ?? '?'}
         </div>
         <div>

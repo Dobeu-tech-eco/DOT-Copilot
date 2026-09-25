@@ -136,7 +136,7 @@ export function CheckboxInput({ label, checked, onChange, description, disabled 
         checked={checked}
         onChange={e => onChange(e.target.checked)}
         disabled={disabled}
-        className="mt-0.5 w-4 h-4 rounded border-gray-300 text-baldor-600 focus:ring-baldor-500"
+        className="mt-0.5 w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
       />
       <div>
         <span className="text-sm font-medium text-gray-700">{label}</span>

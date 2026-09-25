@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-brand-50: 239 247 255;
+  --color-brand-100: 219 235 254;
+  --color-brand-200: 191 219 254;
+  --color-brand-300: 147 197 253;
+  --color-brand-400: 96 165 250;
+  --color-brand-500: 0 102 204;
+  --color-brand-600: 0 82 163;
+  --color-brand-700: 0 68 136;
+  --color-brand-800: 7 57 111;
+  --color-brand-900: 12 49 91;
+  --color-brand-950: 8 31 58;
+  --color-brand-secondary: 74 74 74;
+}
+
 @layer base {
   body {
     @apply bg-gray-50 text-gray-900 font-sans;
@@ -16,8 +31,8 @@
 @layer components {
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg
-           bg-baldor-600 text-white font-medium text-sm
-           hover:bg-baldor-700 active:bg-baldor-800
+           bg-brand-600 text-white font-medium text-sm
+           hover:bg-brand-700 active:bg-brand-800
            transition-colors duration-150
            disabled:opacity-50 disabled:cursor-not-allowed;
   }
@@ -46,7 +61,7 @@
   .input-field {
     @apply w-full px-3.5 py-2.5 rounded-lg border border-gray-300
            text-sm text-gray-900 placeholder:text-gray-400
-           focus:outline-none focus:ring-2 focus:ring-baldor-500/20 focus:border-baldor-500
+           focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500
            transition-all duration-150;
   }
 

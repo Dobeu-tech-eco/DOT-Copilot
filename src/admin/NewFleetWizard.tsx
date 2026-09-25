@@ -120,13 +120,13 @@ export function NewFleetWizard() {
 
       {step !== 'success' && (
         <div className="flex items-center gap-3 text-sm">
-          <div className={`flex items-center gap-2 ${step === 'fleet' ? 'text-baldor-700 font-medium' : 'text-gray-400'}`}>
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${step === 'fleet' ? 'bg-baldor-600 text-white' : 'bg-gray-200 text-gray-500'}`}>1</span>
+          <div className={`flex items-center gap-2 ${step === 'fleet' ? 'text-brand-700 font-medium' : 'text-gray-400'}`}>
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${step === 'fleet' ? 'bg-brand-600 text-white' : 'bg-gray-200 text-gray-500'}`}>1</span>
             Fleet Info
           </div>
           <div className="flex-1 h-px bg-gray-200" />
-          <div className={`flex items-center gap-2 ${step === 'admin' ? 'text-baldor-700 font-medium' : 'text-gray-400'}`}>
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${step === 'admin' ? 'bg-baldor-600 text-white' : 'bg-gray-200 text-gray-500'}`}>2</span>
+          <div className={`flex items-center gap-2 ${step === 'admin' ? 'text-brand-700 font-medium' : 'text-gray-400'}`}>
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${step === 'admin' ? 'bg-brand-600 text-white' : 'bg-gray-200 text-gray-500'}`}>2</span>
             Initial Admin
           </div>
         </div>

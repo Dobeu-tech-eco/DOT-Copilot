@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useAppStore } from '../store/appStore'
+import { ThemeLogo } from './ThemeLogo'
+import { useTheme } from './ThemeProvider'
 import { LayoutDashboard, Users, BookOpen, ShieldCheck, Truck, Bell, LogOut, Menu, X, ChevronDown, ChartBar as BarChart2, Settings } from 'lucide-react'
 import type { UserRole } from '../types/database'
 
@@ -27,6 +29,7 @@ export function Layout() {
   const location = useLocation()
   const { user, logout } = useAuthStore()
   const { notifications } = useAppStore()
+  const { displayName } = useTheme()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
 
@@ -74,12 +77,10 @@ export function Layout() {
       `}>
         <div className="flex items-center justify-between h-16 px-4 border-b border-slate-700/50">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => handleNav('/dashboard')}>
-            <div className="w-8 h-8 rounded-lg bg-baldor-500 flex items-center justify-center">
-              <Truck size={18} className="text-white" />
-            </div>
+            <ThemeLogo className="w-8 h-8 rounded-lg" iconSize={18} />
             <div>
               <div className="font-semibold text-sm leading-tight">DOT Copilot</div>
-              <div className="text-[11px] text-slate-400 leading-tight">Baldor Food Company</div>
+              <div className="text-[11px] text-slate-400 leading-tight">{displayName}</div>
             </div>
           </div>
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-slate-400 hover:text-white">
@@ -98,7 +99,7 @@ export function Layout() {
                   w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
                   transition-colors duration-150
                   ${isActive
-                    ? 'bg-baldor-600 text-white'
+                    ? 'bg-brand-600 text-white'
                     : 'text-slate-300 hover:text-white hover:bg-slate-800'
                   }
                 `}
@@ -116,7 +117,7 @@ export function Layout() {
               onClick={() => setUserMenuOpen(!userMenuOpen)}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors"
             >
-              <div className="w-8 h-8 rounded-full bg-baldor-600 flex items-center justify-center text-sm font-medium">
+              <div className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-sm font-medium">
                 {user?.name?.[0] ?? user?.email?.[0]?.toUpperCase() ?? '?'}
               </div>
               <div className="flex-1 text-left min-w-0">
