@@ -3,17 +3,21 @@
 ## Repository map
 
 - `src/` — canonical React 19/Vite frontend; tests live beside source as `*.test.ts(x)`.
+- `src/test/` — shared Vitest setup for the canonical frontend.
 - `public/` — static assets for the canonical frontend.
-- `cursor-projects/DOT-Copilot/backend/` — canonical Express/Prisma API; Jest tests are in `__tests__/` and the database schema is in `prisma/`.
+- `cursor-projects/DOT-Copilot/backend/` — canonical Express/Prisma API; Jest tests are in `__tests__/`.
+- `cursor-projects/DOT-Copilot/backend/prisma/` — Prisma schema, migrations, and seed script.
 - `cursor-projects/DOT-Copilot/frontend/` — deprecated frontend. Do not add new features here unless the task explicitly targets it; CI still builds and tests it.
 - `cursor-projects/DOT-Copilot/infrastructure/` — Azure Bicep infrastructure.
 - `cursor-projects/DOT-Copilot/docs/` — backend/platform documentation and ADRs.
+- `cursor-projects/DOT-Copilot/mcp-gateway/` — Python/FastAPI MCP gateway.
 - `cursor-projects/dobeuinfo/` — independent React/Vite application.
 - `supabase/migrations/` and `supabase/functions/` — Supabase SQL migrations and edge functions.
 - `scripts/` — repository startup, backup, restore, and infrastructure validation scripts.
 - `database/` — database connection and migration documentation.
+- `docker/` — shared-service, gateway, monitoring, and nginx configuration.
 - `docs/` — repository-wide architecture, migration, and operations documentation.
-- `.github/workflows/` — CI, security scanning, and deployment workflows.
+- `.github/workflows/` — CI, security scanning, dependency review, and deployment workflows.
 - `_archive/` — archived code; excluded from the root ESLint configuration.
 
 This repository does not declare npm workspaces. Run each command from the package directory shown below. Prefer `npm ci` because every active package has a committed lockfile. CI uses Node.js 20 and PostgreSQL 16.
@@ -23,6 +27,7 @@ This repository does not declare npm workspaces. Run each command from the packa
 Install the canonical frontend and backend:
 
 ```bash
+cp .env.example .env
 npm ci
 cd cursor-projects/DOT-Copilot/backend
 npm ci
@@ -96,6 +101,19 @@ npm run preview
 
 No lint, format, or test script is defined for `dobeuinfo`.
 
+### MCP gateway
+
+Run from `cursor-projects/DOT-Copilot/mcp-gateway`:
+
+```bash
+python -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+No build, lint, format, or test command is defined for the MCP gateway.
+
 ## Tests
 
 ### Canonical frontend
@@ -153,7 +171,10 @@ npm test -- src/__tests__/Button.test.tsx
 npm test -- src/__tests__/Button.test.tsx -t "calls onClick"
 ```
 
-## Before committing
+## Code style and before committing
+
+- TypeScript strict mode is enabled in the root frontend, backend, and deprecated inner frontend.
+- Match the quoting and semicolon style of the file being edited; no repository-wide formatter is configured.
 
 Run the checks for every package changed:
 
