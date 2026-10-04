@@ -7,56 +7,63 @@
 - `public/` — static assets for the canonical frontend.
 - `cursor-projects/DOT-Copilot/backend/` — canonical Express/Prisma API; Jest tests are in `__tests__/`.
 - `cursor-projects/DOT-Copilot/backend/prisma/` — Prisma schema, migrations, and seed script.
-- `cursor-projects/DOT-Copilot/frontend/` — deprecated frontend. Do not add new features here unless the task explicitly targets it; CI still builds and tests it.
+- `cursor-projects/DOT-Copilot/frontend/` — deprecated frontend; CI still builds and tests it.
 - `cursor-projects/DOT-Copilot/infrastructure/` — Azure Bicep infrastructure.
-- `cursor-projects/DOT-Copilot/docs/` — backend/platform documentation and ADRs.
+- `cursor-projects/DOT-Copilot/docs/` — API/platform documentation and ADRs.
 - `cursor-projects/DOT-Copilot/mcp-gateway/` — Python/FastAPI MCP gateway.
 - `cursor-projects/dobeuinfo/` — independent React/Vite application.
-- `supabase/migrations/` and `supabase/functions/` — Supabase SQL migrations and edge functions.
+- `supabase/migrations/`, `supabase/functions/` — Supabase migrations and edge functions.
 - `scripts/` — repository startup, backup, restore, and infrastructure validation scripts.
 - `database/` — database connection and migration documentation.
-- `docker/` — shared-service, gateway, monitoring, and nginx configuration.
 - `docs/` — repository-wide architecture, migration, and operations documentation.
+- `docker/` — shared-service, gateway, monitoring, and nginx configuration.
 - `.github/workflows/` — CI, security scanning, dependency review, and deployment workflows.
 - `_archive/` — archived code; excluded from the root ESLint configuration.
 
-This repository does not declare npm workspaces. Run each command from the package directory shown below. Prefer `npm ci` because every active package has a committed lockfile. CI uses Node.js 20 and PostgreSQL 16.
+This repository does not declare npm workspaces. Run each command from the package directory shown. Prefer `npm ci`; every active npm package has a committed lockfile. CI uses Node.js 20 and PostgreSQL 16.
 
 ## Initial setup
 
 Install the canonical frontend and backend:
 
 ```bash
+# Repository root
 cp .env.example .env
 npm ci
+
 cd cursor-projects/DOT-Copilot/backend
-npm ci
 cp .env.example .env
+npm ci
 cd ../../..
 ```
 
-Set `FRONTEND_URL=http://localhost:5000` in the backend `.env` when using the root frontend; the checked-in backend example still points at the deprecated frontend's port 5173.
+For the root frontend, set `FRONTEND_URL=http://localhost:5000` in `cursor-projects/DOT-Copilot/backend/.env`; the example still uses the deprecated frontend's port `5173`.
 
-Start the development PostgreSQL container and initialize the backend schema:
+Start PostgreSQL and initialize the development database:
 
 ```bash
 docker compose -f cursor-projects/DOT-Copilot/docker-compose.dev.yml up -d postgres
-docker compose -f cursor-projects/DOT-Copilot/docker-compose.dev.yml exec postgres createdb -U postgres dot_copilot_test
+
 cd cursor-projects/DOT-Copilot/backend
 npm run db:migrate
 npm run db:seed
 cd ../../..
 ```
 
-The `createdb` command is a one-time test-database setup; skip it when `dot_copilot_test` already exists.
+Create the test database once when backend integration tests need it:
 
-`db:migrate` uses Prisma's development migration command and may create a migration when the schema has uncommitted changes. Review generated migrations before committing them.
+```bash
+docker compose -f cursor-projects/DOT-Copilot/docker-compose.dev.yml exec postgres \
+  createdb -U postgres dot_copilot_test
+```
+
+`db:migrate` runs `prisma migrate dev` and can create a migration when the schema changed. Review generated migrations before committing.
 
 ## Package commands
 
 ### Canonical app: repository root
 
-`npm run dev` starts both the canonical backend on port 3001 and the root Vite frontend on port 5000. Backend dependencies and `cursor-projects/DOT-Copilot/backend/.env` must already exist.
+`npm run dev` starts the backend on port `3001` and the root frontend on port `5000`. Install backend dependencies and create its `.env` first.
 
 ```bash
 npm run dev
@@ -79,6 +86,8 @@ npm run db:seed
 ```
 
 ### Deprecated inner frontend
+
+Do not add new features here unless the task explicitly targets it or CI compatibility requires a change.
 
 ```bash
 cd cursor-projects/DOT-Copilot/frontend
@@ -103,9 +112,8 @@ No lint, format, or test script is defined for `dobeuinfo`.
 
 ### MCP gateway
 
-Run from `cursor-projects/DOT-Copilot/mcp-gateway`:
-
 ```bash
+cd cursor-projects/DOT-Copilot/mcp-gateway
 python -m venv .venv
 . .venv/bin/activate
 python -m pip install -r requirements.txt
@@ -119,10 +127,8 @@ No build, lint, format, or test command is defined for the MCP gateway.
 ### Canonical frontend
 
 ```bash
-# All tests
+# All tests or watch mode
 npm test
-
-# Watch mode
 npm run test:watch
 
 # One file
@@ -134,16 +140,17 @@ npm test -- src/utils/csv.test.ts -t "renders null and undefined"
 
 ### Canonical backend
 
-The full suite expects PostgreSQL at `localhost:5432` with a `dot_copilot_test` database. Jest supplies default test JWT secrets and the test database URL; CI runs Prisma migrations before the suite.
+The full suite expects PostgreSQL at `localhost:5432` with a `dot_copilot_test` database. Jest supplies default test JWT secrets and the test database URL; CI applies Prisma migrations before testing.
 
 ```bash
 cd cursor-projects/DOT-Copilot/backend
 
-# Prepare the test database, then run all tests
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/dot_copilot_test?schema=public npx prisma migrate deploy
+# Prepare the test schema and run all tests
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/dot_copilot_test?schema=public \
+  npx prisma migrate deploy
 npm test
 
-# Watch or coverage
+# Watch mode or coverage
 npm run test:watch
 npm run test:coverage
 
@@ -159,24 +166,21 @@ npm test -- __tests__/password.test.ts -t "should verify correct password"
 ```bash
 cd cursor-projects/DOT-Copilot/frontend
 
-# All tests, watch mode, or coverage
 npm test
 npm run test:watch
 npm run test:coverage
 
-# One file
+# One file or one named test
 npm test -- src/__tests__/Button.test.tsx
-
-# One named test
 npm test -- src/__tests__/Button.test.tsx -t "calls onClick"
 ```
 
-## Code style and before committing
+## Before committing
 
 - TypeScript strict mode is enabled in the root frontend, backend, and deprecated inner frontend.
-- Match the quoting and semicolon style of the file being edited; no repository-wide formatter is configured.
-
-Run the checks for every package changed:
+- The `lint` scripts run TypeScript type-checking with `tsc --noEmit`.
+- No package defines a formatter command. Match the quoting and semicolon style of edited files; do not claim formatting was run unless a formatter command is added.
+- Run the checks for every package changed:
 
 ```bash
 # Canonical frontend
@@ -195,19 +199,17 @@ cd cursor-projects/dobeuinfo
 npm run build
 ```
 
-The `lint` scripts currently run TypeScript type-checking with `tsc --noEmit`. No package defines a formatter script; do not claim formatting was run unless an explicit formatter command is added.
-
 ## Pull requests
 
 - Branch names: `feature/<topic>`, `fix/<topic>`, `docs/<topic>`, `refactor/<topic>`, or `test/<topic>`.
 - Commits: Conventional Commits — `<type>(<optional-scope>): <description>`.
-- Allowed documented types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, and `chore`.
-- Open PRs against `main` or `develop`; both branches run the normal CI and security workflows.
-- Keep these PR checks green:
-  - `CI / Canonical Frontend (Root)` — install, lint, test, build.
-  - `CI / Backend Lint & Test` — Prisma generate/migrate, lint, test, build against PostgreSQL 16.
-  - `CI / Inner frontend Lint & Test` — install, lint, test, build.
+- Documented commit types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, and `chore`.
+- Add or update tests for behavior changes.
+- PRs targeting `main` or `develop` run CI, CodeQL, and dependency review. Keep these checks green:
+  - `CI / Canonical Frontend (Root)` — install, lint, test, and build.
+  - `CI / Backend Lint & Test` — Prisma generate/migrate, lint, test, and build against PostgreSQL 16.
+  - `CI / Inner frontend Lint & Test` — install, lint, test, and build.
   - `CodeQL / Analyze (JavaScript/TypeScript)`.
   - `Dependency Review / dependency-review`.
-- PRs to `main` also trigger `Deploy to Azure`; its `build-test` job rebuilds the canonical frontend and backend before preview deployment.
-- Update or add tests for behavior changes. Keep changes out of the deprecated inner frontend unless required by the task or needed to keep its CI check passing.
+- PRs targeting `main` also run the `Deploy to Azure` workflow, including build, deployment, and health-check jobs.
+- GitHub's active repository rules do not currently configure merge-required status checks; the workflow checks above are the project acceptance bar.
