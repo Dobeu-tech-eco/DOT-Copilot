@@ -211,5 +211,5 @@ npm run build
   - `CI / Inner frontend Lint & Test` — install, lint, test, and build.
   - `CodeQL / Analyze (JavaScript/TypeScript)`.
   - `Dependency Review / dependency-review`.
-- PRs targeting `main` also run the `Deploy to Azure` workflow, including build, deployment, and health-check jobs.
+- PRs opened, synchronized, or reopened against `main` also run the `Deploy to Azure` workflow, including build, deployment, and health-check jobs.
 - GitHub's active repository rules do not currently configure merge-required status checks; the workflow checks above are the project acceptance bar.
