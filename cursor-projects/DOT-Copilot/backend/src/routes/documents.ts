@@ -3,7 +3,7 @@ import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { z } from 'zod';
-import { assertFleetOwnership } from '../middleware/fleetScope';
+import { assertFleetOwnership, fleetFilterValue } from '../middleware/fleetScope';
 
 const router = Router();
 
@@ -77,7 +77,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       where.userId = user.userId;
     } else {
       // Supervisors and above can see fleet documents
-      where.fleetId = user.fleetId;
+      where.fleetId = fleetFilterValue(user);
       if (userId) {
         where.userId = userId as string;
       }
@@ -167,6 +167,20 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
+    const targetUser = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { fleetId: true },
+    });
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (!assertFleetOwnership(targetUser, user, res, 'User not found')) {
+      return;
+    }
+    if (!targetUser.fleetId) {
+      return res.status(400).json({ error: 'Target user must belong to a fleet' });
+    }
+
     // Calculate status based on expiration date
     const now = new Date();
     const expirationDate = new Date(validated.expirationDate);
@@ -185,7 +199,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
         issuedDate: validated.issuedDate ? new Date(validated.issuedDate) : null,
         expirationDate: new Date(validated.expirationDate),
         userId: targetUserId,
-        fleetId: user.fleetId!,
+        fleetId: targetUser.fleetId,
         status,
       },
       include: {
@@ -289,7 +303,7 @@ router.delete('/:id', requireRole('ADMIN', 'SUPERVISOR'), async (req: Authentica
     const user = req.user!;
 
     const existingDoc = await prisma.driverDocument.findUnique({ where: { id } });
-    if (!existingDoc || !assertFleetOwnership(existingDoc, user, res, 'Document not found')) {
+    if (!assertFleetOwnership(existingDoc, user, res, 'Document not found')) {
       return;
     }
 
@@ -320,7 +334,7 @@ router.post('/:id/verify', requireRole('ADMIN', 'SUPERVISOR'), async (req: Authe
     const user = req.user!;
 
     const existingDoc = await prisma.driverDocument.findUnique({ where: { id } });
-    if (!existingDoc || !assertFleetOwnership(existingDoc, user, res, 'Document not found')) {
+    if (!assertFleetOwnership(existingDoc, user, res, 'Document not found')) {
       return;
     }
 
@@ -369,7 +383,7 @@ router.get('/expiring/list', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'
 
     const documents = await prisma.driverDocument.findMany({
       where: {
-        fleetId: user.fleetId ?? undefined,
+        fleetId: fleetFilterValue(user),
         expirationDate: {
           gte: now,
           lte: futureDate,
@@ -429,7 +443,7 @@ router.get('/expired/list', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER')
 
     const documents = await prisma.driverDocument.findMany({
       where: {
-        fleetId: user.fleetId ?? undefined,
+        fleetId: fleetFilterValue(user),
         expirationDate: {
           lt: now,
         },
@@ -484,7 +498,7 @@ router.get('/user/:userId', async (req: AuthenticatedRequest, res: Response) => 
     // Non-drivers may only pull documents for users within their own fleet.
     if (user.role !== 'DRIVER') {
       const targetUser = await prisma.user.findUnique({ where: { id: userId }, select: { fleetId: true } });
-      if (!targetUser || !assertFleetOwnership(targetUser, user, res, 'User not found')) {
+      if (!assertFleetOwnership(targetUser, user, res, 'User not found')) {
         return;
       }
     }

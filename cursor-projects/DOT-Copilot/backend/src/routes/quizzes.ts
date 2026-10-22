@@ -3,7 +3,11 @@ import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { validateBody, createQuizQuestionSchema, updateQuizQuestionSchema, createQuizResponseSchema } from '../schemas';
-import { assertFleetOwnershipByResolvedId, isPlatformAdmin } from '../middleware/fleetScope';
+import {
+  assertFleetOwnershipByResolvedId,
+  assertRecordInFleet,
+  isPlatformAdmin,
+} from '../middleware/fleetScope';
 
 const router = Router();
 
@@ -20,7 +24,7 @@ router.get('/lessons/:lessonId/questions', async (req: AuthenticatedRequest, res
       select: { fleetId: true },
     });
 
-    if (!lesson || !assertFleetOwnershipByResolvedId(lesson, lesson.fleetId, req.user, res, 'Lesson not found')) {
+    if (!assertFleetOwnershipByResolvedId(lesson, lesson?.fleetId, req.user, res, 'Lesson not found')) {
       return;
     }
 
@@ -46,7 +50,7 @@ router.post('/questions', requireRole('ADMIN', 'SUPERVISOR'), validateBody(creat
       select: { fleetId: true },
     });
 
-    if (!lesson || !assertFleetOwnershipByResolvedId(lesson, lesson.fleetId, req.user, res, 'Lesson not found')) {
+    if (!assertFleetOwnershipByResolvedId(lesson, lesson?.fleetId, req.user, res, 'Lesson not found')) {
       return;
     }
 
@@ -70,8 +74,37 @@ router.put('/questions/:id', requireRole('ADMIN', 'SUPERVISOR'), validateBody(up
       where: { id },
       include: { lesson: { select: { fleetId: true } } },
     });
-    if (!existing || !assertFleetOwnershipByResolvedId(existing, existing.lesson?.fleetId, req.user, res, 'Quiz question not found')) {
+    if (!existing) {
+      return res.status(404).json({ error: 'Quiz question not found' });
+    }
+    if (
+      !assertFleetOwnershipByResolvedId(
+        existing,
+        existing.lesson?.fleetId,
+        req.user,
+        res,
+        'Quiz question not found'
+      )
+    ) {
       return;
+    }
+
+    if (req.body.lessonId && req.body.lessonId !== existing.lessonId) {
+      const targetLesson = await prisma.lesson.findUnique({
+        where: { id: req.body.lessonId },
+        select: { fleetId: true },
+      });
+      if (
+        !assertFleetOwnershipByResolvedId(
+          targetLesson,
+          targetLesson?.fleetId,
+          req.user,
+          res,
+          'Lesson not found'
+        )
+      ) {
+        return;
+      }
     }
 
     const question = await prisma.quizQuestion.update({
@@ -95,7 +128,15 @@ router.delete('/questions/:id', requireRole('ADMIN'), async (req: AuthenticatedR
       where: { id },
       include: { lesson: { select: { fleetId: true } } },
     });
-    if (!existing || !assertFleetOwnershipByResolvedId(existing, existing.lesson?.fleetId, req.user, res, 'Quiz question not found')) {
+    if (
+      !assertFleetOwnershipByResolvedId(
+        existing,
+        existing?.lesson?.fleetId,
+        req.user,
+        res,
+        'Quiz question not found'
+      )
+    ) {
       return;
     }
 
@@ -117,10 +158,22 @@ router.post('/responses', validateBody(createQuizResponseSchema), async (req: Au
     // Get the question to check correctness
     const question = await prisma.quizQuestion.findUnique({
       where: { id: quizQuestionId },
+      include: { lesson: { select: { fleetId: true } } },
     });
 
     if (!question) {
       return res.status(404).json({ error: 'Quiz question not found' });
+    }
+    if (
+      !assertFleetOwnershipByResolvedId(
+        question,
+        question.lesson?.fleetId,
+        user,
+        res,
+        'Quiz question not found'
+      )
+    ) {
+      return;
     }
 
     // SECURITY: If a completionRecordId is supplied, make sure it actually
@@ -129,11 +182,14 @@ router.post('/responses', validateBody(createQuizResponseSchema), async (req: Au
     if (completionRecordId) {
       const completionRecord = await prisma.completionRecord.findUnique({
         where: { id: completionRecordId },
-        select: { userId: true },
+        select: { userId: true, fleetId: true },
       });
 
       if (!completionRecord || completionRecord.userId !== user.userId) {
         return res.status(403).json({ error: 'Forbidden' });
+      }
+      if (!assertRecordInFleet(completionRecord, question.lesson.fleetId, res, 'Completion record not found')) {
+        return;
       }
     }
 
@@ -168,6 +224,16 @@ router.post('/responses', validateBody(createQuizResponseSchema), async (req: Au
 // Get user's quiz responses for a lesson
 router.get('/lessons/:lessonId/responses', async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const lesson = await prisma.lesson.findUnique({
+      where: { id: req.params.lessonId },
+      select: { fleetId: true },
+    });
+    if (
+      !assertFleetOwnershipByResolvedId(lesson, lesson?.fleetId, req.user, res, 'Lesson not found')
+    ) {
+      return;
+    }
+
     const responses = await prisma.quizResponse.findMany({
       where: {
         userId: req.user!.userId,

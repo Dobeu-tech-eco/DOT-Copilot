@@ -4,7 +4,7 @@ import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { validateBody, createLessonSchema, updateLessonSchema, paginationSchema, validateQuery } from '../schemas';
 import { z } from 'zod';
-import { assertFleetOwnership, isPlatformAdmin } from '../middleware/fleetScope';
+import { assertFleetOwnership, assertRecordInFleet, isPlatformAdmin } from '../middleware/fleetScope';
 
 const router = Router();
 
@@ -73,7 +73,10 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       },
     });
 
-    if (!lesson || !assertFleetOwnership(lesson, req.user, res, 'Lesson not found')) {
+    if (!lesson) {
+      return res.status(404).json({ error: 'Lesson not found' });
+    }
+    if (!assertFleetOwnership(lesson, req.user, res, 'Lesson not found')) {
       return;
     }
 
@@ -86,6 +89,10 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
 router.post('/', requireRole('ADMIN', 'SUPERVISOR'), validateBody(createLessonSchema), async (req: AuthenticatedRequest, res: Response) => {
   try {
+    if (!(await validateLessonReferences(req.body.fleetId, req.body.moduleId, req.user, res))) {
+      return;
+    }
+
     const lesson = await prisma.lesson.create({
       data: req.body,
       include: {
@@ -105,7 +112,16 @@ router.put('/:id', requireRole('ADMIN', 'SUPERVISOR'), validateBody(updateLesson
     const { id } = req.params;
 
     const existing = await prisma.lesson.findUnique({ where: { id } });
-    if (!existing || !assertFleetOwnership(existing, req.user, res, 'Lesson not found')) {
+    if (!existing) {
+      return res.status(404).json({ error: 'Lesson not found' });
+    }
+    if (!assertFleetOwnership(existing, req.user, res, 'Lesson not found')) {
+      return;
+    }
+
+    const targetFleetId = req.body.fleetId ?? existing.fleetId;
+    const targetModuleId = req.body.moduleId ?? existing.moduleId;
+    if (!(await validateLessonReferences(targetFleetId, targetModuleId, req.user, res))) {
       return;
     }
 
@@ -129,7 +145,7 @@ router.delete('/:id', requireRole('ADMIN'), async (req: AuthenticatedRequest, re
     const { id } = req.params;
 
     const existing = await prisma.lesson.findUnique({ where: { id } });
-    if (!existing || !assertFleetOwnership(existing, req.user, res, 'Lesson not found')) {
+    if (!assertFleetOwnership(existing, req.user, res, 'Lesson not found')) {
       return;
     }
 
@@ -141,5 +157,22 @@ router.delete('/:id', requireRole('ADMIN'), async (req: AuthenticatedRequest, re
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+async function validateLessonReferences(
+  fleetId: string,
+  moduleId: string,
+  user: AuthenticatedRequest['user'],
+  res: Response
+): Promise<boolean> {
+  if (!assertFleetOwnership({ fleetId }, user, res, 'Fleet not found')) {
+    return false;
+  }
+
+  const module = await prisma.module.findUnique({
+    where: { id: moduleId },
+    select: { fleetId: true },
+  });
+  return assertRecordInFleet(module, fleetId, res, 'Module not found');
+}
 
 export default router;

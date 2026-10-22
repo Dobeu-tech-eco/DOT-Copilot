@@ -4,7 +4,7 @@ import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { validateBody, createAssignmentSchema, updateAssignmentSchema, paginationSchema, validateQuery } from '../schemas';
 import { z } from 'zod';
-import { assertFleetOwnership, isPlatformAdmin } from '../middleware/fleetScope';
+import { assertFleetOwnership, assertRecordInFleet, isPlatformAdmin } from '../middleware/fleetScope';
 
 const router = Router();
 
@@ -106,6 +106,10 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
 router.post('/', requireRole('ADMIN', 'SUPERVISOR'), validateBody(createAssignmentSchema), async (req: AuthenticatedRequest, res: Response) => {
   try {
+    if (!(await validateAssignmentReferences(req.body, req.user, res))) {
+      return;
+    }
+
     const assignment = await prisma.assignment.create({
       data: req.body,
       include: {
@@ -180,7 +184,7 @@ router.delete('/:id', requireRole('ADMIN'), async (req: AuthenticatedRequest, re
     const { id } = req.params;
 
     const existing = await prisma.assignment.findUnique({ where: { id } });
-    if (!existing || !assertFleetOwnership(existing, req.user, res, 'Assignment not found')) {
+    if (!assertFleetOwnership(existing, req.user, res, 'Assignment not found')) {
       return;
     }
 
@@ -192,5 +196,48 @@ router.delete('/:id', requireRole('ADMIN'), async (req: AuthenticatedRequest, re
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+async function validateAssignmentReferences(
+  data: {
+    userId: string;
+    fleetId: string;
+    moduleId?: string;
+    trainingProgramId?: string;
+  },
+  user: AuthenticatedRequest['user'],
+  res: Response
+): Promise<boolean> {
+  if (!assertFleetOwnership({ fleetId: data.fleetId }, user, res, 'Fleet not found')) {
+    return false;
+  }
+
+  const [targetUser, module, trainingProgram] = await Promise.all([
+    prisma.user.findUnique({ where: { id: data.userId }, select: { fleetId: true } }),
+    data.moduleId
+      ? prisma.module.findUnique({ where: { id: data.moduleId }, select: { fleetId: true } })
+      : Promise.resolve(null),
+    data.trainingProgramId
+      ? prisma.trainingProgram.findUnique({
+          where: { id: data.trainingProgramId },
+          select: { fleetId: true },
+        })
+      : Promise.resolve(null),
+  ]);
+
+  if (!assertRecordInFleet(targetUser, data.fleetId, res, 'User not found')) {
+    return false;
+  }
+  if (data.moduleId && !assertRecordInFleet(module, data.fleetId, res, 'Module not found')) {
+    return false;
+  }
+  if (
+    data.trainingProgramId &&
+    !assertRecordInFleet(trainingProgram, data.fleetId, res, 'Training program not found')
+  ) {
+    return false;
+  }
+
+  return true;
+}
 
 export default router;

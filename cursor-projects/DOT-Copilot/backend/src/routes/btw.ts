@@ -4,7 +4,11 @@ import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { z } from 'zod';
 import eventDispatcher from '../services/eventDispatcher';
-import { assertFleetOwnership, isPlatformAdmin } from '../middleware/fleetScope';
+import {
+  assertFleetOwnership,
+  assertRecordInFleet,
+  isPlatformAdmin,
+} from '../middleware/fleetScope';
 
 const router = Router();
 
@@ -200,8 +204,14 @@ router.post('/sessions', requireRole('ADMIN', 'SUPERVISOR', 'DRIVER_COACH'), asy
       select: { fleetId: true },
     });
 
-    if (!trainee || !assertFleetOwnership(trainee, user, res, 'Trainee not found')) {
+    if (!trainee) {
+      return res.status(404).json({ error: 'Trainee not found' });
+    }
+    if (!assertFleetOwnership(trainee, user, res, 'Trainee not found')) {
       return;
+    }
+    if (!trainee.fleetId) {
+      return res.status(400).json({ error: 'Trainee must belong to a fleet' });
     }
 
     // Calculate total minutes
@@ -217,7 +227,7 @@ router.post('/sessions', requireRole('ADMIN', 'SUPERVISOR', 'DRIVER_COACH'), asy
       data: {
         traineeId: validated.traineeId,
         trainerId: user.userId,
-        fleetId: user.fleetId ?? trainee.fleetId ?? undefined,
+        fleetId: trainee.fleetId,
         sessionDate: new Date(validated.sessionDate),
         startTime,
         endTime,
@@ -274,9 +284,26 @@ router.put('/sessions/:id', requireRole('ADMIN', 'SUPERVISOR', 'DRIVER_COACH'), 
       return res.status(404).json({ error: 'Session not found' });
     }
 
+    if (!assertFleetOwnership(existing, user, res, 'Session not found')) {
+      return;
+    }
+
     // Only trainer can update their sessions (unless admin)
     if (user.role !== 'ADMIN' && existing.trainerId !== user.userId) {
       return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    if (validated.traineeId && validated.traineeId !== existing.traineeId) {
+      const trainee = await prisma.user.findUnique({
+        where: { id: validated.traineeId },
+        select: { fleetId: true },
+      });
+      if (
+        !existing.fleetId ||
+        !assertRecordInFleet(trainee, existing.fleetId, res, 'Trainee not found')
+      ) {
+        return;
+      }
     }
 
     // Recalculate total minutes if times changed
@@ -439,6 +466,10 @@ router.post('/sessions/:id/complete', requireRole('ADMIN', 'SUPERVISOR', 'DRIVER
       return res.status(404).json({ error: 'Session not found' });
     }
 
+    if (!assertFleetOwnership(session, req.user, res, 'Session not found')) {
+      return;
+    }
+
     if (!session.trainerSignature || !session.traineeSignature) {
       return res.status(400).json({ error: 'Both trainer and trainee must sign before completing' });
     }
@@ -477,7 +508,7 @@ router.get('/trainee/:traineeId/summary', async (req: AuthenticatedRequest, res:
     // SECURITY: Non-drivers may only view summaries for trainees in their own fleet.
     if (user.role !== 'DRIVER') {
       const trainee = await prisma.user.findUnique({ where: { id: traineeId }, select: { fleetId: true } });
-      if (!trainee || !assertFleetOwnership(trainee, user, res, 'Trainee not found')) {
+      if (!assertFleetOwnership(trainee, user, res, 'Trainee not found')) {
         return;
       }
     }
@@ -556,7 +587,7 @@ router.delete('/sessions/:id', requireRole('ADMIN'), async (req: AuthenticatedRe
     const { id } = req.params;
 
     const existing = await prisma.btwSession.findUnique({ where: { id } });
-    if (!existing || !assertFleetOwnership(existing, req.user, res, 'Session not found')) {
+    if (!assertFleetOwnership(existing, req.user, res, 'Session not found')) {
       return;
     }
 

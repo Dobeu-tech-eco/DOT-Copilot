@@ -3,7 +3,7 @@ import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { z } from 'zod';
-import { assertFleetOwnership, isPlatformAdmin } from '../middleware/fleetScope';
+import { assertFleetOwnership, fleetFilterValue, isPlatformAdmin } from '../middleware/fleetScope';
 
 const router = Router();
 
@@ -51,12 +51,14 @@ router.get('/requirements', async (req: AuthenticatedRequest, res: Response) => 
     const { regulatoryBody, isActive } = req.query;
     const user = req.user!;
 
-    const where: any = {
-      OR: [
-        { fleetId: null }, // System-wide templates
-        { fleetId: user.fleetId ?? undefined }, // Fleet-specific
-      ],
-    };
+    const where: any = isPlatformAdmin(user)
+      ? {}
+      : {
+          OR: [
+            { fleetId: null }, // System-wide templates
+            { fleetId: fleetFilterValue(user) }, // Fleet-specific
+          ],
+        };
 
     if (regulatoryBody) {
       where.regulatoryBody = regulatoryBody as string;
@@ -99,6 +101,10 @@ router.post('/requirements', requireRole('ADMIN', 'SUPERVISOR'), async (req: Aut
   try {
     const validated = complianceRequirementSchema.parse(req.body);
     const user = req.user!;
+
+    if (!isPlatformAdmin(user) && !user.fleetId) {
+      return res.status(403).json({ error: 'Fleet context required' });
+    }
 
     const requirement = await prisma.complianceRequirement.create({
       data: {
@@ -228,7 +234,7 @@ router.get('/drivers', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), asy
     const user = req.user!;
 
     const userWhere: any = {
-      fleetId: user.fleetId ?? undefined,
+      fleetId: fleetFilterValue(user),
       role: 'DRIVER',
       isActive: true,
     };
@@ -349,7 +355,7 @@ router.get('/drivers/:userId', async (req: AuthenticatedRequest, res: Response) 
 
     if (user.role !== 'DRIVER') {
       const targetUser = await prisma.user.findUnique({ where: { id: userId }, select: { fleetId: true } });
-      if (!targetUser || !assertFleetOwnership(targetUser, user, res, 'Driver not found')) {
+      if (!assertFleetOwnership(targetUser, user, res, 'Driver not found')) {
         return;
       }
     }
@@ -410,7 +416,21 @@ router.put('/drivers/:userId/requirements/:requirementId', requireRole('ADMIN', 
     // SECURITY: Ensure the target driver belongs to the caller's fleet before
     // allowing their compliance record to be created/updated.
     const targetUser = await prisma.user.findUnique({ where: { id: userId }, select: { fleetId: true } });
-    if (!targetUser || !assertFleetOwnership(targetUser, currentUser, res, 'Driver not found')) {
+    if (!assertFleetOwnership(targetUser, currentUser, res, 'Driver not found')) {
+      return;
+    }
+
+    const requirement = await prisma.complianceRequirement.findUnique({
+      where: { id: requirementId },
+      select: { fleetId: true },
+    });
+    if (!requirement) {
+      return res.status(404).json({ error: 'Requirement not found' });
+    }
+    if (
+      requirement.fleetId !== null &&
+      !assertFleetOwnership(requirement, currentUser, res, 'Requirement not found')
+    ) {
       return;
     }
 
@@ -469,6 +489,7 @@ router.put('/drivers/:userId/requirements/:requirementId', requireRole('ADMIN', 
 router.get('/dashboard', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const user = req.user!;
+    const fleetId = fleetFilterValue(user);
     const now = new Date();
     const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -476,7 +497,7 @@ router.get('/dashboard', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), a
     // Get total drivers
     const totalDrivers = await prisma.user.count({
       where: {
-        fleetId: user.fleetId ?? undefined,
+        fleetId,
         role: 'DRIVER',
         isActive: true,
       },
@@ -485,7 +506,7 @@ router.get('/dashboard', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), a
     // Get expiring documents
     const expiringDocuments = await prisma.driverDocument.findMany({
       where: {
-        fleetId: user.fleetId ?? undefined,
+        fleetId,
         expirationDate: {
           gte: now,
           lte: thirtyDaysFromNow,
@@ -502,7 +523,7 @@ router.get('/dashboard', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), a
     // Get expired documents
     const expiredDocuments = await prisma.driverDocument.findMany({
       where: {
-        fleetId: user.fleetId ?? undefined,
+        fleetId,
         expirationDate: {
           lt: now,
         },
@@ -518,7 +539,7 @@ router.get('/dashboard', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), a
     // Get overdue training assignments
     const overdueAssignments = await prisma.assignment.findMany({
       where: {
-        fleetId: user.fleetId ?? undefined,
+        fleetId,
         status: { not: 'completed' },
         dueDate: {
           lt: now,
@@ -538,7 +559,7 @@ router.get('/dashboard', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), a
     // Get upcoming due assignments
     const upcomingDue = await prisma.assignment.findMany({
       where: {
-        fleetId: user.fleetId ?? undefined,
+        fleetId,
         status: { not: 'completed' },
         dueDate: {
           gte: now,
@@ -602,13 +623,14 @@ router.get('/dashboard', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), a
 router.get('/expiring', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const user = req.user!;
+    const fleetId = fleetFilterValue(user);
     const days = parseInt(req.query.days as string) || 30;
     const now = new Date();
     const futureDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
     const expiringDocuments = await prisma.driverDocument.findMany({
       where: {
-        fleetId: user.fleetId ?? undefined,
+        fleetId,
         expirationDate: {
           gte: now,
           lte: futureDate,
@@ -624,7 +646,7 @@ router.get('/expiring', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), as
 
     const expiringCompliance = await prisma.driverCompliance.findMany({
       where: {
-        user: { fleetId: user.fleetId ?? undefined },
+        user: { fleetId },
         expirationDate: {
           gte: now,
           lte: futureDate,

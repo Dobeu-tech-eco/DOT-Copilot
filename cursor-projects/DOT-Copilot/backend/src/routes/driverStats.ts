@@ -2,7 +2,7 @@ import { logError } from '../services/logger';
 import { Router, Response } from 'express';
 import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
-import { assertFleetOwnership } from '../middleware/fleetScope';
+import { assertFleetOwnership, fleetFilterValue } from '../middleware/fleetScope';
 
 const router = Router();
 
@@ -87,9 +87,10 @@ router.get('/rankings', async (req: AuthenticatedRequest, res: Response) => {
     const user = req.user!;
     const limit = parseInt(req.query.limit as string) || 20;
     const locationId = req.query.locationId as string;
+    const fleetId = fleetFilterValue(user);
 
     const userWhere: any = {
-      fleetId: user.fleetId ?? undefined,
+      fleetId,
       role: 'DRIVER',
       isActive: true,
     };
@@ -174,7 +175,7 @@ router.get('/:userId', async (req: AuthenticatedRequest, res: Response) => {
     // SECURITY: Non-drivers may only view stats for users in their own fleet.
     if (user.role !== 'DRIVER') {
       const targetUser = await prisma.user.findUnique({ where: { id: userId }, select: { fleetId: true } });
-      if (!targetUser || !assertFleetOwnership(targetUser, user, res, 'Driver not found')) {
+      if (!assertFleetOwnership(targetUser, user, res, 'Driver not found')) {
         return;
       }
     }
@@ -221,7 +222,7 @@ router.post('/:userId/refresh', requireRole('ADMIN', 'SUPERVISOR'), async (req: 
 
     // SECURITY: Only allow recalculating stats for users within the caller's fleet.
     const targetUser = await prisma.user.findUnique({ where: { id: userId }, select: { fleetId: true } });
-    if (!targetUser || !assertFleetOwnership(targetUser, user, res, 'Driver not found')) {
+    if (!assertFleetOwnership(targetUser, user, res, 'Driver not found')) {
       return;
     }
 
@@ -247,6 +248,7 @@ router.post('/:userId/refresh', requireRole('ADMIN', 'SUPERVISOR'), async (req: 
 router.get('/fleet/summary', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const user = req.user!;
+    const fleetId = fleetFilterValue(user);
 
     const [
       totalDrivers,
@@ -257,30 +259,30 @@ router.get('/fleet/summary', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'
     ] = await Promise.all([
       prisma.user.count({
         where: {
-          fleetId: user.fleetId ?? undefined,
+          fleetId,
           role: 'DRIVER',
           isActive: true,
         },
       }),
       prisma.completionRecord.count({
-        where: { fleetId: user.fleetId ?? undefined },
+        where: { fleetId },
       }),
       prisma.completionRecord.aggregate({
         where: {
-          fleetId: user.fleetId ?? undefined,
+          fleetId,
           quizScore: { not: null },
         },
         _avg: { quizScore: true },
       }),
       prisma.driverStats.aggregate({
         where: {
-          user: { fleetId: user.fleetId },
+          user: { fleetId },
         },
         _sum: { totalTimeSpent: true },
       }),
       prisma.driverStats.findMany({
         where: {
-          user: { fleetId: user.fleetId },
+          user: { fleetId },
         },
         include: {
           user: {
@@ -295,11 +297,11 @@ router.get('/fleet/summary', requireRole('ADMIN', 'SUPERVISOR', 'BRANCH_MANAGER'
     // Get completion rate
     const [assignedCount, completedCount] = await Promise.all([
       prisma.assignment.count({
-        where: { fleetId: user.fleetId ?? undefined },
+        where: { fleetId },
       }),
       prisma.assignment.count({
         where: {
-          fleetId: user.fleetId ?? undefined,
+          fleetId,
           status: 'completed',
         },
       }),

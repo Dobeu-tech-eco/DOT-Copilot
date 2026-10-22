@@ -69,7 +69,10 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       },
     });
 
-    if (!program || !assertFleetOwnership(program, req.user, res, 'Training program not found')) {
+    if (!program) {
+      return res.status(404).json({ error: 'Training program not found' });
+    }
+    if (!assertFleetOwnership(program, req.user, res, 'Training program not found')) {
       return;
     }
 
@@ -82,6 +85,10 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
 router.post('/', requireRole('ADMIN', 'SUPERVISOR'), validateBody(createTrainingProgramSchema), async (req: AuthenticatedRequest, res: Response) => {
   try {
+    if (!assertFleetOwnership({ fleetId: req.body.fleetId }, req.user, res, 'Fleet not found')) {
+      return;
+    }
+
     const program = await prisma.trainingProgram.create({
       data: req.body,
       include: { fleet: true },
@@ -99,7 +106,16 @@ router.put('/:id', requireRole('ADMIN', 'SUPERVISOR'), validateBody(updateTraini
     const { id } = req.params;
 
     const existing = await prisma.trainingProgram.findUnique({ where: { id } });
-    if (!existing || !assertFleetOwnership(existing, req.user, res, 'Training program not found')) {
+    if (!existing) {
+      return res.status(404).json({ error: 'Training program not found' });
+    }
+    if (!assertFleetOwnership(existing, req.user, res, 'Training program not found')) {
+      return;
+    }
+    if (
+      req.body.fleetId &&
+      !assertFleetOwnership({ fleetId: req.body.fleetId }, req.user, res, 'Fleet not found')
+    ) {
       return;
     }
 
@@ -121,7 +137,7 @@ router.delete('/:id', requireRole('ADMIN'), async (req: AuthenticatedRequest, re
     const { id } = req.params;
 
     const existing = await prisma.trainingProgram.findUnique({ where: { id } });
-    if (!existing || !assertFleetOwnership(existing, req.user, res, 'Training program not found')) {
+    if (!assertFleetOwnership(existing, req.user, res, 'Training program not found')) {
       return;
     }
 

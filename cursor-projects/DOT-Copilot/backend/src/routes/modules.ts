@@ -4,7 +4,7 @@ import prisma from '../db';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { validateBody, createModuleSchema, updateModuleSchema, paginationSchema, validateQuery } from '../schemas';
 import { z } from 'zod';
-import { assertFleetOwnership, isPlatformAdmin } from '../middleware/fleetScope';
+import { assertFleetOwnership, assertRecordInFleet, isPlatformAdmin } from '../middleware/fleetScope';
 
 const router = Router();
 
@@ -75,7 +75,10 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       },
     });
 
-    if (!module || !assertFleetOwnership(module, req.user, res, 'Module not found')) {
+    if (!module) {
+      return res.status(404).json({ error: 'Module not found' });
+    }
+    if (!assertFleetOwnership(module, req.user, res, 'Module not found')) {
       return;
     }
 
@@ -88,6 +91,10 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
 router.post('/', requireRole('ADMIN', 'SUPERVISOR'), validateBody(createModuleSchema), async (req: AuthenticatedRequest, res: Response) => {
   try {
+    if (!(await validateModuleReferences(req.body.fleetId, req.body.trainingProgramId, req.user, res))) {
+      return;
+    }
+
     const module = await prisma.module.create({
       data: req.body,
       include: {
@@ -108,7 +115,16 @@ router.put('/:id', requireRole('ADMIN', 'SUPERVISOR'), validateBody(updateModule
     const { id } = req.params;
 
     const existing = await prisma.module.findUnique({ where: { id } });
-    if (!existing || !assertFleetOwnership(existing, req.user, res, 'Module not found')) {
+    if (!existing) {
+      return res.status(404).json({ error: 'Module not found' });
+    }
+    if (!assertFleetOwnership(existing, req.user, res, 'Module not found')) {
+      return;
+    }
+
+    const targetFleetId = req.body.fleetId ?? existing.fleetId;
+    const targetProgramId = req.body.trainingProgramId ?? existing.trainingProgramId;
+    if (!(await validateModuleReferences(targetFleetId, targetProgramId, req.user, res))) {
       return;
     }
 
@@ -133,7 +149,7 @@ router.delete('/:id', requireRole('ADMIN'), async (req: AuthenticatedRequest, re
     const { id } = req.params;
 
     const existing = await prisma.module.findUnique({ where: { id } });
-    if (!existing || !assertFleetOwnership(existing, req.user, res, 'Module not found')) {
+    if (!assertFleetOwnership(existing, req.user, res, 'Module not found')) {
       return;
     }
 
@@ -145,5 +161,22 @@ router.delete('/:id', requireRole('ADMIN'), async (req: AuthenticatedRequest, re
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+async function validateModuleReferences(
+  fleetId: string,
+  trainingProgramId: string,
+  user: AuthenticatedRequest['user'],
+  res: Response
+): Promise<boolean> {
+  if (!assertFleetOwnership({ fleetId }, user, res, 'Fleet not found')) {
+    return false;
+  }
+
+  const program = await prisma.trainingProgram.findUnique({
+    where: { id: trainingProgramId },
+    select: { fleetId: true },
+  });
+  return assertRecordInFleet(program, fleetId, res, 'Training program not found');
+}
 
 export default router;

@@ -4,7 +4,11 @@ import prisma from '../db';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { validateBody, createCompletionRecordSchema, paginationSchema, validateQuery } from '../schemas';
 import { z } from 'zod';
-import { assertFleetOwnership, isPlatformAdmin } from '../middleware/fleetScope';
+import {
+  assertFleetOwnership,
+  assertRecordInFleet,
+  isPlatformAdmin,
+} from '../middleware/fleetScope';
 
 const router = Router();
 
@@ -75,6 +79,11 @@ router.post('/', validateBody(createCompletionRecordSchema), async (req: Authent
       return res.status(403).json({ error: 'Forbidden' });
     }
 
+    const references = await validateCompletionReferences(req.body, req.user, res);
+    if (!references) {
+      return;
+    }
+
     const record = await prisma.completionRecord.create({
       data: {
         ...req.body,
@@ -87,23 +96,8 @@ router.post('/', validateBody(createCompletionRecordSchema), async (req: Authent
       },
     });
 
-    // Update assignment status if applicable
-    // SECURITY: Verify assignment belongs to the authenticated user before updating
+    // Update the assignment only after all references have been authorized.
     if (req.body.assignmentId) {
-      const assignment = await prisma.assignment.findUnique({
-        where: { id: req.body.assignmentId },
-        select: { userId: true },
-      });
-
-      if (!assignment) {
-        return res.status(404).json({ error: 'Assignment not found' });
-      }
-
-      // Drivers can only complete their own assignments
-      if (req.user?.role === 'DRIVER' && assignment.userId !== req.user.userId) {
-        return res.status(403).json({ error: 'Cannot complete assignment belonging to another user' });
-      }
-
       await prisma.assignment.update({
         where: { id: req.body.assignmentId },
         data: { status: 'completed' },
@@ -151,5 +145,58 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+async function validateCompletionReferences(
+  data: {
+    userId: string;
+    fleetId: string;
+    lessonId?: string;
+    moduleId?: string;
+    assignmentId?: string;
+  },
+  user: AuthenticatedRequest['user'],
+  res: Response
+): Promise<boolean> {
+  if (!assertFleetOwnership({ fleetId: data.fleetId }, user, res, 'Fleet not found')) {
+    return false;
+  }
+
+  const [targetUser, lesson, module, assignment] = await Promise.all([
+    prisma.user.findUnique({ where: { id: data.userId }, select: { fleetId: true } }),
+    data.lessonId
+      ? prisma.lesson.findUnique({ where: { id: data.lessonId }, select: { fleetId: true } })
+      : Promise.resolve(null),
+    data.moduleId
+      ? prisma.module.findUnique({ where: { id: data.moduleId }, select: { fleetId: true } })
+      : Promise.resolve(null),
+    data.assignmentId
+      ? prisma.assignment.findUnique({
+          where: { id: data.assignmentId },
+          select: { fleetId: true, userId: true },
+        })
+      : Promise.resolve(null),
+  ]);
+
+  if (!assertRecordInFleet(targetUser, data.fleetId, res, 'User not found')) {
+    return false;
+  }
+  if (data.lessonId && !assertRecordInFleet(lesson, data.fleetId, res, 'Lesson not found')) {
+    return false;
+  }
+  if (data.moduleId && !assertRecordInFleet(module, data.fleetId, res, 'Module not found')) {
+    return false;
+  }
+  if (data.assignmentId) {
+    if (!assertRecordInFleet(assignment, data.fleetId, res, 'Assignment not found')) {
+      return false;
+    }
+    if (assignment!.userId !== data.userId) {
+      res.status(404).json({ error: 'Assignment not found' });
+      return false;
+    }
+  }
+
+  return true;
+}
 
 export default router;
