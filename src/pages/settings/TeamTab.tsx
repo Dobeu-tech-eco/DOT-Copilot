@@ -26,7 +26,7 @@ function NotifToggle({ enabled, onChange, icon, label }: { enabled: boolean; onC
     <button
       onClick={onChange}
       title={label}
-      className={`p-1.5 rounded-lg transition-colors ${enabled ? 'bg-baldor-100 text-baldor-600' : 'bg-gray-100 text-gray-400 hover:text-gray-600'}`}
+      className={`p-1.5 rounded-lg transition-colors ${enabled ? 'bg-brand-100 text-brand-600' : 'bg-gray-100 text-gray-400 hover:text-gray-600'}`}
     >
       {icon}
     </button>
@@ -44,7 +44,7 @@ function UserNotifRow({ profile, onToggle, onToggleActive }: UserNotifRowProps) 
     <tr className="hover:bg-gray-50 transition-colors">
       <td className="px-5 py-3.5">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-baldor-100 text-baldor-700 flex items-center justify-center text-sm font-medium flex-shrink-0">
+          <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-sm font-medium flex-shrink-0">
             {profile.name?.[0]?.toUpperCase() ?? profile.email[0].toUpperCase()}
           </div>
           <div>
@@ -220,10 +220,10 @@ export function TeamTab() {
           </div>
           <p className="text-sm text-gray-500 mb-4">Enable or disable notification channels for the entire fleet</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className={`rounded-xl border p-5 transition-all ${fleet.enable_sms_notifications ? 'border-baldor-200 bg-baldor-50/30' : 'border-gray-200'}`}>
+            <div className={`rounded-xl border p-5 transition-all ${fleet.enable_sms_notifications ? 'border-brand-200 bg-brand-50/30' : 'border-gray-200'}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${fleet.enable_sms_notifications ? 'bg-baldor-100 text-baldor-600' : 'bg-gray-100 text-gray-400'}`}>
+                  <div className={`p-2 rounded-lg ${fleet.enable_sms_notifications ? 'bg-brand-100 text-brand-600' : 'bg-gray-100 text-gray-400'}`}>
                     <MessageSquare size={16} />
                   </div>
                   <div>
@@ -233,7 +233,7 @@ export function TeamTab() {
                 </div>
                 <button
                   onClick={() => handleFleetToggle('enable_sms_notifications', !fleet.enable_sms_notifications)}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${fleet.enable_sms_notifications ? 'bg-baldor-600' : 'bg-gray-200'}`}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${fleet.enable_sms_notifications ? 'bg-brand-600' : 'bg-gray-200'}`}
                   role="switch"
                   aria-checked={fleet.enable_sms_notifications}
                 >
@@ -241,10 +241,10 @@ export function TeamTab() {
                 </button>
               </div>
             </div>
-            <div className={`rounded-xl border p-5 transition-all ${fleet.enable_push_notifications ? 'border-baldor-200 bg-baldor-50/30' : 'border-gray-200'}`}>
+            <div className={`rounded-xl border p-5 transition-all ${fleet.enable_push_notifications ? 'border-brand-200 bg-brand-50/30' : 'border-gray-200'}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${fleet.enable_push_notifications ? 'bg-baldor-100 text-baldor-600' : 'bg-gray-100 text-gray-400'}`}>
+                  <div className={`p-2 rounded-lg ${fleet.enable_push_notifications ? 'bg-brand-100 text-brand-600' : 'bg-gray-100 text-gray-400'}`}>
                     <Bell size={16} />
                   </div>
                   <div>
@@ -254,7 +254,7 @@ export function TeamTab() {
                 </div>
                 <button
                   onClick={() => handleFleetToggle('enable_push_notifications', !fleet.enable_push_notifications)}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${fleet.enable_push_notifications ? 'bg-baldor-600' : 'bg-gray-200'}`}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${fleet.enable_push_notifications ? 'bg-brand-600' : 'bg-gray-200'}`}
                   role="switch"
                   aria-checked={fleet.enable_push_notifications}
                 >

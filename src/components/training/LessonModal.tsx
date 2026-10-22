@@ -98,7 +98,7 @@ export function LessonModal({ open, onClose, onSubmit, editing, submitting }: Le
                 key={opt.value}
                 className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border cursor-pointer transition-all ${
                   contentType === opt.value
-                    ? 'border-baldor-500 bg-baldor-50 text-baldor-700'
+                    ? 'border-brand-500 bg-brand-50 text-brand-700'
                     : 'border-gray-200 hover:border-gray-300 text-gray-700'
                 }`}
               >
@@ -177,7 +177,7 @@ export function LessonModal({ open, onClose, onSubmit, editing, submitting }: Le
           <input
             type="checkbox"
             id="requires_esignature"
-            className="rounded border-gray-300 text-baldor-600 focus:ring-baldor-500"
+            className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
             {...form.register('requires_esignature')}
           />
           <label htmlFor="requires_esignature" className="text-sm text-gray-700">

@@ -146,7 +146,7 @@ export function TrainingPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="card p-4 flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-baldor-50 text-baldor-600"><GraduationCap size={20} /></div>
+          <div className="p-2 rounded-lg bg-brand-50 text-brand-600"><GraduationCap size={20} /></div>
           <div><p className="text-2xl font-bold text-gray-900">{trainingPrograms.length}</p><p className="text-xs text-gray-500">Programs</p></div>
         </div>
         <div className="card p-4 flex items-center gap-3">
@@ -196,14 +196,14 @@ export function TrainingPage() {
                 const total = pa.length
                 const pct = total > 0 ? Math.round((completed / total) * 100) : 0
                 return (
-                  <div key={p.id} className="border border-gray-200 rounded-xl p-4 hover:border-baldor-300 hover:shadow-sm transition-all group">
+                  <div key={p.id} className="border border-gray-200 rounded-xl p-4 hover:border-brand-300 hover:shadow-sm transition-all group">
                     <div className="flex items-start justify-between mb-2">
-                      <div className="p-2 rounded-lg bg-baldor-50 text-baldor-600"><BookOpen size={18} /></div>
+                      <div className="p-2 rounded-lg bg-brand-50 text-brand-600"><BookOpen size={18} /></div>
                       <div className="flex items-center gap-1">
                         {p.is_recommended && <span className="badge badge-success">Recommended</span>}
                         {canManageTraining && (
                           <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                            <button onClick={() => openEditProgram(p)} className="p-1 text-gray-400 hover:text-baldor-600"><Pencil size={13} /></button>
+                            <button onClick={() => openEditProgram(p)} className="p-1 text-gray-400 hover:text-brand-600"><Pencil size={13} /></button>
                             <button onClick={() => setDeleteTarget({ type: 'program', id: p.id, name: p.program_name })} className="p-1 text-gray-400 hover:text-red-600"><Trash2 size={13} /></button>
                           </div>
                         )}
@@ -216,7 +216,7 @@ export function TrainingPage() {
                     {total > 0 && (
                       <div className="mt-3">
                         <div className="flex justify-between text-xs mb-1"><span className="text-gray-500">{completed}/{total} completed</span><span className="font-medium text-gray-700">{pct}%</span></div>
-                        <div className="w-full bg-gray-100 rounded-full h-1.5"><div className="bg-baldor-500 h-1.5 rounded-full transition-all" style={{ width: `${pct}%` }} /></div>
+                        <div className="w-full bg-gray-100 rounded-full h-1.5"><div className="bg-brand-500 h-1.5 rounded-full transition-all" style={{ width: `${pct}%` }} /></div>
                       </div>
                     )}
                   </div>
@@ -269,7 +269,7 @@ export function TrainingPage() {
           <FormInput label="Estimated Duration (min)" type="number" registration={programForm.register('estimated_duration', { valueAsNumber: true })} />
           <FormInput label="Category" registration={programForm.register('template_category')} placeholder="e.g. Safety, Compliance" />
           <div className="flex items-center gap-2">
-            <input type="checkbox" id="is_rec" className="rounded border-gray-300 text-baldor-600 focus:ring-baldor-500" {...programForm.register('is_recommended')} />
+            <input type="checkbox" id="is_rec" className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" {...programForm.register('is_recommended')} />
             <label htmlFor="is_rec" className="text-sm text-gray-700">Recommended Program</label>
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">

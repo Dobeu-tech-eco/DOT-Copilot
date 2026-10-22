@@ -35,10 +35,10 @@ function ChannelCard({ icon, title, description, detail, enabled, onChange, disa
   }
 
   return (
-    <div className={`rounded-xl border p-5 transition-all ${enabled ? 'border-baldor-200 bg-baldor-50/30' : 'border-gray-200 bg-white'}`}>
+    <div className={`rounded-xl border p-5 transition-all ${enabled ? 'border-brand-200 bg-brand-50/30' : 'border-gray-200 bg-white'}`}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-4">
-          <div className={`p-2.5 rounded-xl ${enabled ? 'bg-baldor-100 text-baldor-600' : 'bg-gray-100 text-gray-400'}`}>
+          <div className={`p-2.5 rounded-xl ${enabled ? 'bg-brand-100 text-brand-600' : 'bg-gray-100 text-gray-400'}`}>
             {icon}
           </div>
           <div className="flex-1">
@@ -57,7 +57,7 @@ function ChannelCard({ icon, title, description, detail, enabled, onChange, disa
         <button
           onClick={handleToggle}
           disabled={disabled || loading}
-          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-baldor-500 focus:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed ${enabled ? 'bg-baldor-600' : 'bg-gray-200'}`}
+          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed ${enabled ? 'bg-brand-600' : 'bg-gray-200'}`}
           role="switch"
           aria-checked={enabled}
         >

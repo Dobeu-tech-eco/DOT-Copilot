@@ -196,7 +196,7 @@ export function UsersPage() {
                   <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-baldor-100 text-baldor-700 flex items-center justify-center text-sm font-medium">
+                        <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-sm font-medium">
                           {p.name?.[0]?.toUpperCase() ?? p.email[0].toUpperCase()}
                         </div>
                         <div>
@@ -211,12 +211,12 @@ export function UsersPage() {
                     <td className="px-5 py-3.5">{p.is_active ? <span className="badge badge-success">Active</span> : <span className="badge badge-neutral">Inactive</span>}</td>
                     <td className="px-5 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => setViewingDriver(p)} className="p-1.5 text-gray-400 hover:text-baldor-600 hover:bg-baldor-50 rounded-lg transition-colors" title="View profile">
+                        <button onClick={() => setViewingDriver(p)} className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="View profile">
                           <Eye size={14} />
                         </button>
                         {canManageUsers && (
                           <>
-                            <button onClick={() => openEdit(p)} className="p-1.5 text-gray-400 hover:text-baldor-600 hover:bg-baldor-50 rounded-lg transition-colors" title="Edit">
+                            <button onClick={() => openEdit(p)} className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="Edit">
                               <Pencil size={14} />
                             </button>
                             <button onClick={() => setToggleTarget(p)} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title={p.is_active ? 'Deactivate' : 'Activate'}>

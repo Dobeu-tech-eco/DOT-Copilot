@@ -4,6 +4,7 @@ import { useAppStore } from '../store/appStore'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { AssignmentBadge } from '../components/StatusBadge'
 import { ExportModal } from '../components/ExportModal'
+import { useTheme } from '../components/ThemeProvider'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -11,15 +12,6 @@ import {
 import {
   TrendingUp, ShieldCheck, FileWarning, Users, GraduationCap, Download,
 } from 'lucide-react'
-
-const COMPLIANCE_COLORS: Record<string, string> = {
-  Compliant: '#3a8b45',
-  'In Progress': '#3b82f6',
-  Expiring: '#f59e0b',
-  Expired: '#ef4444',
-  'Not Started': '#6b7280',
-  Waived: '#9ca3af',
-}
 
 const DEFAULT_EXPORT_COLUMNS = [
   { key: 'name', label: 'Driver Name', enabled: true },
@@ -38,6 +30,7 @@ const DEFAULT_EXPORT_COLUMNS = [
 
 export function ReportsPage() {
   const { user } = useAuthStore()
+  const theme = useTheme()
   const {
     profiles, trainingPrograms, assignments, complianceRecords, documents,
     loading, fetchProfiles, fetchTrainingPrograms, fetchAssignments,
@@ -45,6 +38,14 @@ export function ReportsPage() {
   } = useAppStore()
   const [exportOpen, setExportOpen] = useState(false)
   const [statusFilter, setStatusFilter] = useState<'all' | 'good' | 'warning' | 'critical'>('all')
+  const complianceColors: Record<string, string> = {
+    Compliant: theme.colors[500],
+    'In Progress': '#3b82f6',
+    Expiring: '#f59e0b',
+    Expired: '#ef4444',
+    'Not Started': '#6b7280',
+    Waived: '#9ca3af',
+  }
 
   useEffect(() => {
     if (!user?.fleet_id) return
@@ -179,7 +180,7 @@ export function ReportsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card p-5">
           <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <TrendingUp size={16} className="text-baldor-600" />
+            <TrendingUp size={16} className="text-brand-600" />
             Training Completion by Program
           </h3>
           {programStats.length === 0 ? (
@@ -192,7 +193,7 @@ export function ReportsPage() {
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                   <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 11 }} />
                   <Tooltip formatter={(v) => [`${v}%`, 'Completion Rate']} />
-                  <Bar dataKey="rate" fill="#3a8b45" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="rate" fill={theme.colors[500]} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -201,7 +202,7 @@ export function ReportsPage() {
 
         <div className="card p-5">
           <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <ShieldCheck size={16} className="text-baldor-600" />
+            <ShieldCheck size={16} className="text-brand-600" />
             Compliance Distribution
           </h3>
           {complianceDist.length === 0 ? (
@@ -221,7 +222,7 @@ export function ReportsPage() {
                       dataKey="value"
                     >
                       {complianceDist.map((entry, i) => (
-                        <Cell key={i} fill={COMPLIANCE_COLORS[entry.name] ?? '#6b7280'} />
+                        <Cell key={i} fill={complianceColors[entry.name] ?? '#6b7280'} />
                       ))}
                     </Pie>
                     <Tooltip />
@@ -232,7 +233,7 @@ export function ReportsPage() {
                 {complianceDist.map(entry => (
                   <div key={entry.name} className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: COMPLIANCE_COLORS[entry.name] ?? '#6b7280' }} />
+                      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: complianceColors[entry.name] ?? '#6b7280' }} />
                       <span className="text-gray-600">{entry.name}</span>
                     </div>
                     <span className="font-semibold text-gray-900">{entry.value}</span>
@@ -246,7 +247,7 @@ export function ReportsPage() {
 
       <div className="card p-5">
         <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <FileWarning size={16} className="text-baldor-600" />
+          <FileWarning size={16} className="text-brand-600" />
           Document Expiration Summary
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -319,7 +320,7 @@ export function ReportsPage() {
                   <tr key={driver.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-baldor-100 text-baldor-700 flex items-center justify-center text-xs font-medium flex-shrink-0">
+                        <div className="w-7 h-7 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-medium flex-shrink-0">
                           {driver.name?.[0]?.toUpperCase() ?? driver.email[0].toUpperCase()}
                         </div>
                         <div>

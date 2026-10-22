@@ -7,18 +7,19 @@ export default {
   theme: {
     extend: {
       colors: {
-        baldor: {
-          50: '#f0f7f0',
-          100: '#dceede',
-          200: '#badcbe',
-          300: '#8cc494',
-          400: '#5ca867',
-          500: '#3a8b45',
-          600: '#2c6f35',
-          700: '#24592c',
-          800: '#1f4725',
-          900: '#1a3b20',
-          950: '#0d2012',
+        brand: {
+          50: 'rgb(var(--color-brand-50) / <alpha-value>)',
+          100: 'rgb(var(--color-brand-100) / <alpha-value>)',
+          200: 'rgb(var(--color-brand-200) / <alpha-value>)',
+          300: 'rgb(var(--color-brand-300) / <alpha-value>)',
+          400: 'rgb(var(--color-brand-400) / <alpha-value>)',
+          500: 'rgb(var(--color-brand-500) / <alpha-value>)',
+          600: 'rgb(var(--color-brand-600) / <alpha-value>)',
+          700: 'rgb(var(--color-brand-700) / <alpha-value>)',
+          800: 'rgb(var(--color-brand-800) / <alpha-value>)',
+          900: 'rgb(var(--color-brand-900) / <alpha-value>)',
+          950: 'rgb(var(--color-brand-950) / <alpha-value>)',
+          secondary: 'rgb(var(--color-brand-secondary) / <alpha-value>)',
         },
         slate: {
           750: '#293548',

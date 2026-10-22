@@ -56,7 +56,7 @@ export function ExportModal({ open, onClose, filteredRows, allRows, defaultColum
       <div className="w-full max-w-md bg-white rounded-xl shadow-2xl animate-slide-up">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
-            <Download size={18} className="text-baldor-600" />
+            <Download size={18} className="text-brand-600" />
             <h3 className="text-lg font-semibold text-gray-900">Export CSV</h3>
           </div>
           <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
@@ -71,7 +71,7 @@ export function ExportModal({ open, onClose, filteredRows, allRows, defaultColum
               id="include-all"
               checked={includeAll}
               onChange={e => setIncludeAll(e.target.checked)}
-              className="mt-0.5 rounded border-gray-300 text-baldor-600 focus:ring-baldor-500"
+              className="mt-0.5 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
             />
             <label htmlFor="include-all" className="cursor-pointer">
               <span className="text-sm font-medium text-gray-900 block">Include all drivers</span>
@@ -110,7 +110,7 @@ export function ExportModal({ open, onClose, filteredRows, allRows, defaultColum
                         id={`col-${col.key}`}
                         checked={col.enabled}
                         onChange={() => toggleColumn(col.key)}
-                        className="rounded border-gray-300 text-baldor-600 focus:ring-baldor-500"
+                        className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
                       />
                       <label htmlFor={`col-${col.key}`} className="flex-1 text-sm text-gray-700 cursor-pointer">
                         {col.label}

@@ -146,7 +146,7 @@ export function ContentTab({ trainingPrograms, fleetId, canManage }: ContentTabP
                 onClick={() => setSelectedProgram(p)}
                 className={`w-full text-left px-4 py-3 text-sm transition-colors ${
                   selectedProgram?.id === p.id
-                    ? 'bg-baldor-50 text-baldor-700 font-medium border-r-2 border-baldor-500'
+                    ? 'bg-brand-50 text-brand-700 font-medium border-r-2 border-brand-500'
                     : 'text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -182,7 +182,7 @@ export function ContentTab({ trainingPrograms, fleetId, canManage }: ContentTabP
 
             {loading.modules ? (
               <div className="flex items-center justify-center py-12">
-                <div className="w-6 h-6 border-2 border-baldor-500/30 border-t-baldor-500 rounded-full animate-spin" />
+                <div className="w-6 h-6 border-2 border-brand-500/30 border-t-brand-500 rounded-full animate-spin" />
               </div>
             ) : programModules.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center px-4">
@@ -207,7 +207,7 @@ export function ContentTab({ trainingPrograms, fleetId, canManage }: ContentTabP
                           onClick={() => toggleModule(mod.id)}
                           className="flex items-center gap-3 flex-1 text-left min-w-0"
                         >
-                          <div className="w-7 h-7 rounded-lg bg-baldor-100 text-baldor-600 flex items-center justify-center flex-shrink-0 text-xs font-semibold">
+                          <div className="w-7 h-7 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center flex-shrink-0 text-xs font-semibold">
                             {mod.sequence_order + 1}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -237,7 +237,7 @@ export function ContentTab({ trainingPrograms, fleetId, canManage }: ContentTabP
                           <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 flex-shrink-0">
                             <button
                               onClick={() => openEditModule(mod)}
-                              className="p-1.5 text-gray-400 hover:text-baldor-600 hover:bg-baldor-50 rounded-lg transition-colors"
+                              className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
                             >
                               <Pencil size={13} />
                             </button>
@@ -273,7 +273,7 @@ export function ContentTab({ trainingPrograms, fleetId, canManage }: ContentTabP
                                         </span>
                                       )}
                                       {lesson.requires_esignature && (
-                                        <span className="text-xs text-baldor-600 flex items-center gap-1">
+                                        <span className="text-xs text-brand-600 flex items-center gap-1">
                                           <FileCheck size={10} />e-sig
                                         </span>
                                       )}
@@ -283,7 +283,7 @@ export function ContentTab({ trainingPrograms, fleetId, canManage }: ContentTabP
                                     <div className="opacity-0 group-hover/lesson:opacity-100 transition-opacity flex items-center gap-1">
                                       <button
                                         onClick={() => openEditLesson(lesson)}
-                                        className="p-1.5 text-gray-400 hover:text-baldor-600 hover:bg-baldor-50 rounded-lg transition-colors"
+                                        className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
                                       >
                                         <Pencil size={12} />
                                       </button>
@@ -303,7 +303,7 @@ export function ContentTab({ trainingPrograms, fleetId, canManage }: ContentTabP
                             <div className="px-5 py-3 pl-14 border-t border-gray-100">
                               <button
                                 onClick={() => openCreateLesson(mod.id)}
-                                className="text-xs text-baldor-600 hover:text-baldor-700 font-medium flex items-center gap-1.5 transition-colors"
+                                className="text-xs text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1.5 transition-colors"
                               >
                                 <Plus size={13} />
                                 Add Lesson

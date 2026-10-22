@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import { Truck, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { ThemeLogo } from '../components/ThemeLogo'
+import { useTheme } from '../components/ThemeProvider'
+import { Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { z } from 'zod'
 
 const loginSchema = z.object({
@@ -12,6 +14,7 @@ const loginSchema = z.object({
 export function LoginPage() {
   const navigate = useNavigate()
   const { login, loading, error, isAuthenticated, clearError } = useAuthStore()
+  const { displayName } = useTheme()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -68,12 +71,10 @@ export function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-baldor-500 flex items-center justify-center">
-              <Truck size={22} className="text-white" />
-            </div>
+            <ThemeLogo className="w-10 h-10 rounded-xl" iconSize={22} />
             <div>
               <h1 className="text-xl font-bold text-white">DOT Copilot</h1>
-              <p className="text-sm text-slate-400">Baldor Food Company</p>
+              <p className="text-sm text-slate-400">{displayName}</p>
             </div>
           </div>
 
@@ -97,10 +98,10 @@ export function LoginPage() {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
-                placeholder="you@baldorfood.com"
+                placeholder="you@company.com"
                 className="w-full px-3.5 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-white
                            placeholder:text-slate-500 text-sm
-                           focus:outline-none focus:ring-2 focus:ring-baldor-500/30 focus:border-baldor-500
+                           focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500
                            transition-all duration-150"
               />
             </div>
@@ -116,7 +117,7 @@ export function LoginPage() {
                   placeholder="Enter your password"
                   className="w-full px-3.5 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-white
                              placeholder:text-slate-500 text-sm pr-10
-                             focus:outline-none focus:ring-2 focus:ring-baldor-500/30 focus:border-baldor-500
+                             focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500
                              transition-all duration-150"
                 />
                 <button
@@ -132,7 +133,7 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 rounded-lg bg-baldor-600 hover:bg-baldor-700 active:bg-baldor-800
+              className="w-full py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800
                          text-white font-medium text-sm transition-colors duration-150
                          disabled:opacity-50 disabled:cursor-not-allowed
                          flex items-center justify-center gap-2"
@@ -147,13 +148,13 @@ export function LoginPage() {
 
           <p className="mt-6 text-center text-sm text-slate-400">
             Don't have an account?{' '}
-            <Link to="/register" className="text-baldor-400 hover:text-baldor-300 font-medium transition-colors">
+            <Link to="/register" className="text-brand-400 hover:text-brand-300 font-medium transition-colors">
               Create one
             </Link>
           </p>
 
           <p className="mt-6 text-center text-xs text-slate-500">
-            Protected by DOT Copilot &middot; Baldor Food Company
+            Protected by DOT Copilot &middot; {displayName}
           </p>
         </div>
       </div>

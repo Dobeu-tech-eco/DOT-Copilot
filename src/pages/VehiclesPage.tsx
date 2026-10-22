@@ -186,7 +186,7 @@ export function VehiclesPage() {
                     {canManageVehicles && (
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => openEdit(v)} className="p-1.5 text-gray-400 hover:text-baldor-600 hover:bg-baldor-50 rounded-lg transition-colors"><Pencil size={14} /></button>
+                          <button onClick={() => openEdit(v)} className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"><Pencil size={14} /></button>
                           <button onClick={() => setDeleteTarget(v)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={14} /></button>
                         </div>
                       </td>
@@ -216,7 +216,7 @@ export function VehiclesPage() {
             <FormInput label="Next Inspection Due" type="date" registration={form.register('next_inspection_due')} />
           </FormSection>
           <div className="flex items-center gap-2">
-            <input type="checkbox" id="temp_mon" className="rounded border-gray-300 text-baldor-600 focus:ring-baldor-500" {...form.register('has_temperature_monitoring')} />
+            <input type="checkbox" id="temp_mon" className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" {...form.register('has_temperature_monitoring')} />
             <label htmlFor="temp_mon" className="text-sm text-gray-700">Has Temperature Monitoring</label>
           </div>
           <FormTextarea label="Notes" registration={form.register('notes')} />
