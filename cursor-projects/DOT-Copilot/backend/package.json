@@ -26,7 +26,7 @@
     "@azure/storage-blob": "^12.29.1",
     "@prisma/client": "^5.22.0",
     "@sentry/node": "^10.47.0",
-    "ai": "^6.0.144",
+    "ai": "^7.0.65",
     "applicationinsights": "^3.12.1",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
