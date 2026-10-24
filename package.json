@@ -17,7 +17,7 @@
     "@sentry/react": "^10.47.0",
     "@supabase/supabase-js": "^2.101.1",
     "date-fns": "^4.1.0",
-    "esbuild": "^0.28.0",
+    "esbuild": "^0.28.2",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
