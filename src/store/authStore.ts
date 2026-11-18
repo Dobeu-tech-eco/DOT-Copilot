@@ -48,10 +48,11 @@ function mutateSession<T>(revision: number, mutate: () => Promise<T>): Promise<T
   return result.finally(() => { --pendingMutations })
 }
 
-export const useAuthStore = create<AuthState>((set) => {
-  const applySession = async (session: AuthSession, revision: number) => {
+export const useAuthStore = create<AuthState>((set, get) => {
+  const applySession = async (session: AuthSession, revision: number, requireProfile = false) => {
     const profile = session ? await fetchProfile(session.user.id) : null
     if (revision !== authRevision || admissionBlocked) return
+    if (requireProfile && !profile) throw new Error("Your account is unavailable or inactive. Contact your administrator.")
     set({
       user: profile,
       session: session && profile ? { access_token: session.access_token } : null,
@@ -93,12 +94,14 @@ export const useAuthStore = create<AuthState>((set) => {
     initialize: async () => {
       if (!subscribed) {
         subscribed = true
-        supabase.auth.onAuthStateChange(() => {
+        supabase.auth.onAuthStateChange((event, incoming) => {
           // Local mutations own admission, including their awaited SDK callbacks.
           if (pendingMutations || admissionBlocked) return
           const revision = ++authRevision
           activeRequest = null
-          set({ ...clearedIdentity, loading: false })
+          const sameIdentityRefresh = (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')
+            && incoming?.user.id === get().user?.id && get().isAuthenticated
+          if (!sameIdentityRefresh) set({ ...clearedIdentity, loading: false })
           // Auth callbacks hold the SDK lock. Read the current session afterward,
           // rather than trusting a potentially delayed callback payload.
           setTimeout(() => {
@@ -129,7 +132,7 @@ export const useAuthStore = create<AuthState>((set) => {
           set({ ...clearedIdentity, initialized: true, loading: false })
           return
         }
-        await applySession(current.session, revision)
+        await applySession(current.session, revision, true)
       } catch (error: unknown) {
         if (revision !== authRevision) return
         admissionBlocked = true

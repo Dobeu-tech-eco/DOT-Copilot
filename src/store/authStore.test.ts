@@ -387,3 +387,31 @@ describe('serialized latest auth intent', () => {
   })
 
 })
+
+
+describe('review regressions', () => {
+  it.each([null, { ...profile, is_active: false }])('explains explicit login denial', async value => {
+    mocks.signInWithPassword.mockResolvedValue(signedIn)
+    mocks.profile.mockResolvedValue({ data: value, error: null })
+    const s = await store()
+    await expect(s.getState().login('driver@example.invalid', 'test')).rejects.toThrow('unavailable or inactive')
+    expect(s.getState().isAuthenticated).toBe(false)
+    expect(s.getState().error).toContain('Contact your administrator')
+  })
+  it.each(['TOKEN_REFRESHED', 'USER_UPDATED'])('preserves admission during same-user %s and revokes on denial', async event => {
+    vi.useFakeTimers()
+    try {
+      const s = await store()
+      await s.getState().initialize()
+      const pending = deferred<{ data: typeof profile | null; error: null }>()
+      mocks.profile.mockReturnValue(pending.promise)
+      mocks.onAuthStateChange.mock.calls[0][0](event, session)
+      expect(s.getState().isAuthenticated).toBe(true)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(s.getState().isAuthenticated).toBe(true)
+      pending.resolve({ data: null, error: null })
+      await vi.advanceTimersByTimeAsync(0)
+      expect(s.getState().isAuthenticated).toBe(false)
+    } finally { vi.useRealTimers() }
+  })
+})
