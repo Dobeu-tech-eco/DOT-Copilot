@@ -1,0 +1,893 @@
+{
+  "container": "supabase_db_dot-foundation-replay-flvyyzuo",
+  "historical_only": false,
+  "server": "PostgreSQL 17.11 on aarch64-unknown-linux-gnu, compiled by gcc (GCC) 15.2.0, 64-bit",
+  "cases": {
+    "full": {
+      "database": "dot_accept_full_1794999673336667000",
+      "migrations": [
+        {
+          "file": "20260227000217_create_core_schema.sql",
+          "exit": 0
+        },
+        {
+          "file": "20260227014254_add_missing_fk_indexes.sql",
+          "exit": 0
+        },
+        {
+          "file": "20260227014402_optimize_rls_policies_and_security.sql",
+          "exit": 0
+        },
+        {
+          "file": "20260227034043_drop_unused_indexes.sql",
+          "exit": 0
+        },
+        {
+          "file": "20260227034110_consolidate_permissive_policies.sql",
+          "exit": 0
+        },
+        {
+          "file": "20260227222123_add_foreign_key_indexes.sql",
+          "exit": 0
+        },
+        {
+          "file": "20260306234218_drop_unused_fk_indexes_and_email_index.sql",
+          "exit": 0
+        },
+        {
+          "file": "20260314145611_add_push_subscriptions.sql",
+          "exit": 0
+        },
+        {
+          "file": "20260410232616_add_btw_sessions_and_webhooks.sql",
+          "exit": 0
+        },
+        {
+          "file": "20260707000000_platform_admin_and_provisioning.sql",
+          "exit": 0
+        },
+        {
+          "file": "20260707010000_fix_profiles_rls_recursion.sql",
+          "exit": 0
+        },
+        {
+          "file": "20260726003000_init_schema.sql",
+          "exit": 0
+        },
+        {
+          "file": "20261118000000_foundation_authorization.sql",
+          "exit": 0
+        }
+      ],
+      "tests": {
+        "deny_self_platform_admin": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_self_role": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_self_fleet": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_self_activation": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_cross_fleet_completion": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_self_scored_completion": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_inactive_training": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_inactive_profile_update": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_completion_update": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_completion_delete": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_profile_insert": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_profile_delete": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "allow_own_server_completion_read": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_malformed_completion_read": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_direct_other_fleet_read": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "allow_active_own_fleet_read": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "allow_safe_profile_edit": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_raw_metadata_privileges": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "allow_service_role_management": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "allow_server_completion": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "allow_two_step_auth_invite": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t\nt",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t\nt",
+            "error": ""
+          }
+        ],
+        "deny_existing_identity_invite_reassignment": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t\nt",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t\nt",
+            "error": ""
+          }
+        ],
+        "deny_driver_invitation_reservation": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "allow_trusted_invite_attachment": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t\nt",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t\nt",
+            "error": ""
+          }
+        ],
+        "deny_expired_invite_attachment": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_signup_consuming_invite": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t\nt",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t\nt",
+            "error": ""
+          }
+        ],
+        "deny_invite_without_reservation": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ]
+      },
+      "role": "authenticated:false:false"
+    },
+    "baseline": {
+      "database": "dot_accept_baseline_1794999673336667000",
+      "migrations": [
+        {
+          "file": "20260726003000_init_schema.sql",
+          "exit": 0
+        },
+        {
+          "file": "20261118000000_foundation_authorization.sql",
+          "exit": 0
+        }
+      ],
+      "tests": {
+        "deny_self_platform_admin": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_self_role": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_self_fleet": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_self_activation": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_cross_fleet_completion": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_self_scored_completion": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_inactive_training": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_inactive_profile_update": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_completion_update": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_completion_delete": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_profile_insert": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_profile_delete": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "allow_own_server_completion_read": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_malformed_completion_read": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_direct_other_fleet_read": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "allow_active_own_fleet_read": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "allow_safe_profile_edit": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_raw_metadata_privileges": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "allow_service_role_management": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "allow_server_completion": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "allow_two_step_auth_invite": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t\nt",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t\nt",
+            "error": ""
+          }
+        ],
+        "deny_existing_identity_invite_reassignment": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t\nt",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t\nt",
+            "error": ""
+          }
+        ],
+        "deny_driver_invitation_reservation": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "allow_trusted_invite_attachment": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t\nt",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t\nt",
+            "error": ""
+          }
+        ],
+        "deny_expired_invite_attachment": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ],
+        "deny_signup_consuming_invite": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t\nt",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t\nt",
+            "error": ""
+          }
+        ],
+        "deny_invite_without_reservation": [
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          },
+          {
+            "pass": true,
+            "exit": 0,
+            "output": "t",
+            "error": ""
+          }
+        ]
+      },
+      "role": "authenticated:false:false"
+    }
+  },
+  "migration_hashes": [
+    {
+      "file": "20260227000217_create_core_schema.sql",
+      "sha256": "55fd3e6726986f2ba098a8c4f52793738dc6340a01f65a6b6b3116b890490b3c"
+    },
+    {
+      "file": "20260227014254_add_missing_fk_indexes.sql",
+      "sha256": "76ab55b48f7df21dd37c49e3a5dabdfdfd65a18172b019e83251b42913f31600"
+    },
+    {
+      "file": "20260227014402_optimize_rls_policies_and_security.sql",
+      "sha256": "81ffa8c7287e694ebaf38919af6914a5749f24803d03b8f07dfc4de5ad7ed746"
+    },
+    {
+      "file": "20260227034043_drop_unused_indexes.sql",
+      "sha256": "8bc5bcbec6a95faf047a91bee55d4ba0a4d03cc5fc57c2bcfdb9c4b489a651ae"
+    },
+    {
+      "file": "20260227034110_consolidate_permissive_policies.sql",
+      "sha256": "101b7c6917b4cf4d5896aeb7a499450568799dfaf7c0cb45b50e92cb92b28cde"
+    },
+    {
+      "file": "20260227222123_add_foreign_key_indexes.sql",
+      "sha256": "7dfaecbe336363010bc62433bdf5374ba372e5cea4563b4ba1ccd787dcd88c5a"
+    },
+    {
+      "file": "20260306234218_drop_unused_fk_indexes_and_email_index.sql",
+      "sha256": "c83151b5ddd18efd96771165178c0e7c8439ecdc21fad4cbd8c535c94b700739"
+    },
+    {
+      "file": "20260314145611_add_push_subscriptions.sql",
+      "sha256": "249bdd47d270e3f4744838e9c05410527a673235664b7d019e796ac2b72731bb"
+    },
+    {
+      "file": "20260410232616_add_btw_sessions_and_webhooks.sql",
+      "sha256": "c4693310a5c0ea1213218b443a52fbed9736d95a2aab87e63ee8dbcd09128af4"
+    },
+    {
+      "file": "20260707000000_platform_admin_and_provisioning.sql",
+      "sha256": "25d6b94e257ca48d8a439d08b5d8a5e7c5ed7a5d4ac25be539953f139c4700cf"
+    },
+    {
+      "file": "20260707010000_fix_profiles_rls_recursion.sql",
+      "sha256": "01df2abb6cd0d5adb0242a9ee9c95c5e4415077e8485a25863b22c9cd629d2dd"
+    },
+    {
+      "file": "20260726003000_init_schema.sql",
+      "sha256": "c434d194226f625f60ba9e43276bf490463a05fe95cc31897197f8a88e4ffab8"
+    },
+    {
+      "file": "20261118000000_foundation_authorization.sql",
+      "sha256": "5e82a550bb85e2501ffb56e3643819394c4426c1cedf9779a6d77b933c9cc5f6"
+    }
+  ]
+}

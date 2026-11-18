@@ -121,8 +121,8 @@ Authenticate user and receive access tokens.
         "name": "Fleet A"
       }
     },
-    "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-    "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
+    "accessToken": "<example-token>",
+    "refreshToken": "<example-token>"
   }
 }
 ```
@@ -158,8 +158,8 @@ Register a new user account.
       "name": "Jane Smith",
       "role": "DRIVER"
     },
-    "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-    "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
+    "accessToken": "<example-token>",
+    "refreshToken": "<example-token>"
   }
 }
 ```
@@ -177,7 +177,7 @@ Refresh access token using refresh token.
 **Request:**
 ```json
 {
-  "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
+  "refreshToken": "<example-token>"
 }
 ```
 
@@ -185,8 +185,8 @@ Refresh access token using refresh token.
 ```json
 {
   "data": {
-    "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-    "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
+    "accessToken": "<example-token>",
+    "refreshToken": "<example-token>"
   }
 }
 ```

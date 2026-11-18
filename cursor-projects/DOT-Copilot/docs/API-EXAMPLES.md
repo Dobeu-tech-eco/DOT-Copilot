@@ -25,8 +25,8 @@ Response:
       "name": "Admin User",
       "role": "ADMIN"
     },
-    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    "accessToken": "<example-token>",
+    "refreshToken": "<example-token>"
   }
 }
 ```
@@ -35,7 +35,7 @@ Response:
 
 ```bash
 # Store token in variable
-TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+TOKEN="<example-token>"
 
 # Use in subsequent requests
 curl -X GET http://localhost:3001/api/users \
@@ -48,7 +48,7 @@ curl -X GET http://localhost:3001/api/users \
 curl -X POST http://localhost:3001/api/auth/refresh \
   -H "Content-Type: application/json" \
   -d '{
-    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    "refreshToken": "<example-token>"
   }'
 ```
 
@@ -405,7 +405,7 @@ Response:
 
 ```bash
 curl -X GET http://localhost:3001/api/users \
-  -H "Authorization: Bearer invalid_token"
+  -H "Authorization: Bearer <access-token>"
 ```
 
 Response:
