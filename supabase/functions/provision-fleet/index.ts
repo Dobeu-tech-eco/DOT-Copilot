@@ -61,7 +61,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: callerProfile, error: callerProfileError } = await anonClient
       .from("profiles")
-      .select("id, is_platform_admin")
+      .select("id, is_platform_admin, is_active")
       .eq("id", callerId)
       .maybeSingle()
 
@@ -69,8 +69,8 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Caller profile not found" }, 403)
     }
 
-    if (!callerProfile.is_platform_admin) {
-      return jsonResponse({ error: "Forbidden: platform admin access required" }, 403)
+    if (!callerProfile.is_active || !callerProfile.is_platform_admin) {
+      return jsonResponse({ error: "Forbidden: active platform admin access required" }, 403)
     }
 
     const payload: ProvisionFleetPayload = await req.json()
@@ -100,25 +100,65 @@ Deno.serve(async (req: Request) => {
       .single()
 
     if (fleetError || !newFleet) {
-      console.error("Failed to create fleet:", fleetError)
+      console.error("Failed to create fleet")
       return jsonResponse({ error: "Failed to create fleet" }, 500)
     }
 
     const fleetId = newFleet.id
 
-    const { error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(
-      admin.email,
-      {
-        data: {
-          fleet_id: fleetId,
-          role: "ADMIN",
-          full_name: admin.full_name,
+    // Reserve authority before Auth creates the user. The signup trigger trusts
+    // this service-only row, never the caller-editable Auth user metadata.
+    const invitationEmail = admin.email.trim().toLowerCase()
+    const { data: reservation, error: reservationError } = await serviceClient
+      .from("fleet_invitations")
+      .insert({
+        email: invitationEmail,
+        fleet_id: fleetId,
+        role: "ADMIN",
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      })
+      .select("id")
+      .single()
+
+    if (reservationError || !reservation) {
+      console.error("Failed to reserve fleet invitation")
+      return jsonResponse({ error: "Fleet created but failed to reserve admin invitation", fleet_id: fleetId }, 500)
+    }
+
+    const removeReservation = async (): Promise<boolean> => {
+      const { error } = await serviceClient
+        .from("fleet_invitations")
+        .delete()
+        .eq("id", reservation.id)
+      if (error) console.error("Failed to remove fleet invitation reservation")
+      return !error
+    }
+
+    let inviteError
+    let invitedUserId: string | undefined
+    try {
+      const result = await serviceClient.auth.admin.inviteUserByEmail(
+        invitationEmail,
+        {
+          data: { full_name: admin.full_name },
+          redirectTo: `${redirect_origin}/welcome`,
         },
-        redirectTo: `${redirect_origin}/welcome`,
-      },
-    )
+      )
+      inviteError = result.error
+      invitedUserId = result.data.user?.id
+    } catch {
+      if (!await removeReservation()) {
+        return jsonResponse({ error: "Fleet created; invitation failed and reservation cleanup requires server attention", fleet_id: fleetId }, 500)
+      }
+      return jsonResponse({ error: "Fleet created but failed to invite admin user", fleet_id: fleetId }, 500)
+    }
 
     if (inviteError) {
+      // Delete only this request's reservation; an email-based cleanup could
+      // remove a newer invitation created by another server request.
+      if (!await removeReservation()) {
+        return jsonResponse({ error: "Fleet created; invitation failed and reservation cleanup requires server attention", fleet_id: fleetId }, 500)
+      }
       const alreadyExists =
         inviteError.status === 422 ||
         /already been registered|already exists/i.test(inviteError.message ?? "")
@@ -133,13 +173,25 @@ Deno.serve(async (req: Request) => {
         )
       }
 
-      console.error("Failed to invite admin user:", inviteError)
+      console.error("Failed to invite admin user")
       return jsonResponse({ error: "Fleet created but failed to invite admin user" }, 500)
     }
 
+    // Re-inviting an existing unconfirmed account need not INSERT auth.users.
+    // Never report successful provisioning unless the trusted trigger attached it.
+    const { data: attachedProfile, error: attachmentError } = invitedUserId
+      ? await serviceClient.from("profiles").select("id")
+        .eq("id", invitedUserId).eq("fleet_id", fleetId)
+        .eq("role", "ADMIN").eq("is_active", true).maybeSingle()
+      : { data: null, error: null }
+    if (attachmentError || !attachedProfile) {
+      await removeReservation()
+      return jsonResponse({ error: "Invitation did not attach the administrator; server attention required", fleet_id: fleetId }, 409)
+    }
+
     return jsonResponse({ fleet_id: fleetId, invited: true }, 200)
-  } catch (err) {
-    console.error("provision-fleet error:", err)
+  } catch {
+    console.error("provision-fleet request failed")
     return jsonResponse({ error: "Internal server error" }, 500)
   }
 })

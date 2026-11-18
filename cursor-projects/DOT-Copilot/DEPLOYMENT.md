@@ -108,7 +108,7 @@ Use these for:
 Access performance metrics at `/metrics` (requires authentication in production):
 
 ```bash
-curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:3001/metrics
+curl -H "Authorization: Bearer <access-token>" http://localhost:3001/metrics
 ```
 
 ### Sentry Integration

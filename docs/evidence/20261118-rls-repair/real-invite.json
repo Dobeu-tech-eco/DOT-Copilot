@@ -1,0 +1,12 @@
+{
+  "first_invite_http": 200,
+  "profile": {
+    "role": "ADMIN",
+    "fleet_matches": true,
+    "invited_at_present": true
+  },
+  "remaining_reservations": 0,
+  "repeat_invite_http": 200,
+  "repeat_reservation_count": 1,
+  "pass": true
+}
