@@ -79,3 +79,11 @@ Evidence/scripts/catalogs: .harness/runs/20261117-foundation/database-replay/. E
 ## Authorized RLS repair — November 18, 2026
 
 Five verified RLS findings repaired locally with forward-only SQL and service-owned invitation reservations. Both histories replay: 27 cases twice per history pass (108/108). Real GoTrue invitation returns ADMIN in the reserved fleet and consumes its reservation. Auth INSERT/UPDATE ordering is covered; later invitations cannot reassign an existing identity. See [complete acceptance report](rls-repair-acceptance.md) and committed JSON evidence. Root tests68/68, lint, build, Deno check pass. Security and correctness reviews find no blocker. This supersedes the five-flaw D6 blocker; schema convergence, create-user and complete server workflows remain open. No live or production changes.
+
+## Request validation continuation — November 20, 2026
+
+Reverified GitHub PR312 is MERGED at 491494183f9d2db6bd4579d12aa005e036b1b3f2; this continuation did not merge it. Created fix/provision-fleet-request-validation from that head. Docker now answers 29.9.3; prior daemon blocker is obsolete.
+
+Done-when: malformed provisioning bodies return 400 before privileged client creation, with regression coverage and Edge typecheck. Extracted a dependency-injectable request handler, validated/normalized fleet name, admin name/email, optional address and web-origin shape. No redirect allowlist policy is inferred; Supabase Auth redirect configuration still requires verification. Existing successful provisioning orchestration is preserved.
+
+Validation: Deno tests 19/19 pass (17 payload cases and two request-handler cases, using injected clients); Edge entrypoint Deno check and git diff --check pass. Tests use no database, network or environment permission. This is not full Edge/Auth HTTP integration or successful end-to-end provisioning proof. No migration changed. Remaining work: orchestration failure/retry tests, schema convergence and unresolved customer/invitation/completion decisions. Changes local; no commit/push/PR/deploy/live database action in this continuation. Pre-existing untracked artifacts preserved.
